@@ -1,0 +1,378 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<FDSNStationXML xmlns="http://www.fdsn.org/xml/station/1" schemaVersion="1.2">
+  <Source>IRIS-DMC</Source>
+  <Sender>IRIS-DMC</Sender>
+  <Module>IRIS WEB SERVICE: fdsnws-station | version: 1.1.52</Module>
+  <ModuleURI>http://service.iris.edu/fdsnws/station/1/query?starttime=2004-09-20T00%3A00%3A00.000000&amp;endtime=2004-10-01T00%3A00%3A00.000000&amp;network=UW&amp;station=SEP%2CYEL%2CHSR%2CSHW%2CEDM%2CSTD%2CJUN%2CSOS&amp;channel=EHZ&amp;level=channel&amp;latitude=46.2&amp;longitude=-122.18&amp;maxradius=0.4496608029593653</ModuleURI>
+  <Created>2025-09-10T17:18:45.878200Z</Created>
+  <Network code="UW" startDate="1963-01-01T00:00:00.000000Z" restrictedStatus="open">
+    <Description>Pacific Northwest Seismic Network (PNSN)</Description>
+    <Identifier type="DOI">10.7914/SN/UW
+   </Identifier>
+    <TotalNumberStations>886</TotalNumberStations>
+    <SelectedNumberStations>8</SelectedNumberStations>
+    <Station code="EDM" startDate="1980-06-01T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.19717</Latitude>
+      <Longitude unit="DEGREES">-122.15121</Longitude>
+      <Elevation>1611.0</Elevation>
+      <Site>
+        <Name>East Dome, Mt. St. Helens, WA, USA</Name>
+      </Site>
+      <CreationDate>1980-06-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>49</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2004-08-12T00:00:00.000000Z" endDate="2008-04-01T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.19717</Latitude>
+        <Longitude unit="DEGREES">-122.15121</Longitude>
+        <Elevation>1609.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>217971000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="HSR" startDate="1985-08-12T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.17428</Latitude>
+      <Longitude unit="DEGREES">-122.18065</Longitude>
+      <Elevation>1720.0</Elevation>
+      <Site>
+        <Name>South Ridge, Mt. St. Helens, WA, USA</Name>
+      </Site>
+      <CreationDate>1985-08-12T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>35</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2002-09-05T00:00:00.000000Z" endDate="2004-10-04T23:59:59.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.17428</Latitude>
+        <Longitude unit="DEGREES">-122.18065</Longitude>
+        <Elevation>1720.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>S-13,Velocity Sensor,GEOTECH</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>138672000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="JUN" startDate="1980-05-08T00:00:00.000000Z" restrictedStatus="open">
+      <Comment>
+        <Value>Sensor type unknown, assume generic L4, damping 0.8</Value>
+        <BeginEffectiveTime>1985-02-27T00:00:00.000000Z</BeginEffectiveTime>
+        <EndEffectiveTime>2001-07-31T23:59:59.000000Z</EndEffectiveTime>
+      </Comment>
+      <Comment>
+        <Value>Sensor type unknown, assume generic L4, damping 0.8</Value>
+        <BeginEffectiveTime>1985-02-27T00:00:00.000000Z</BeginEffectiveTime>
+        <EndEffectiveTime>2001-07-31T23:59:59.000000Z</EndEffectiveTime>
+      </Comment>
+      <Comment>
+        <Value>Shape of high frequency response uncertain (&gt;10 Hz). Gain OK.</Value>
+        <BeginEffectiveTime>1980-05-08T00:00:00.000000Z</BeginEffectiveTime>
+        <EndEffectiveTime>2006-05-25T23:59:59.000000Z</EndEffectiveTime>
+      </Comment>
+      <Latitude unit="DEGREES">46.14706</Latitude>
+      <Longitude unit="DEGREES">-122.152428</Longitude>
+      <Elevation>1049.0</Elevation>
+      <Site>
+        <Name>June Lake previous ISC code: JLK</Name>
+      </Site>
+      <CreationDate>1980-05-08T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>19</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2001-08-01T00:00:00.000000Z" endDate="2004-10-07T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.14706</Latitude>
+        <Longitude unit="DEGREES">-122.152428</Longitude>
+        <Elevation>1049.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0001</ClockDrift>
+        <CalibrationUnits>
+          <Name>A</Name>
+          <Description>Amperes</Description>
+        </CalibrationUnits>
+        <Sensor>
+          <Description>L4C-3802=McVCO=J120=Wrmsn-XXXX</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>210997000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Meters/sec Velocity</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="SEP" startDate="1997-09-01T00:00:00.000000Z" endDate="2004-10-06T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.200211</Latitude>
+      <Longitude unit="DEGREES">-122.190598</Longitude>
+      <Elevation>2116.0</Elevation>
+      <Site>
+        <Name>September lobe, Mt. St. Helens (Dome sta)</Name>
+      </Site>
+      <CreationDate>1997-09-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>4</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="1997-09-01T00:00:00.000000Z" endDate="2004-10-06T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.200211</Latitude>
+        <Longitude unit="DEGREES">-122.190598</Longitude>
+        <Elevation>2116.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0001</ClockDrift>
+        <CalibrationUnits>
+          <Name>A</Name>
+          <Description>Amperes</Description>
+        </CalibrationUnits>
+        <Sensor>
+          <Description>L4-XXXX=McVCO=6203=Wrmsn-XXXX</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>81283000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>M/S</Name>
+              <Description>Velocity in Meters/Second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>COUNTS</Name>
+              <Description>Digital Counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="SHW" startDate="1972-10-01T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.19364</Latitude>
+      <Longitude unit="DEGREES">-122.23492</Longitude>
+      <Elevation>1442.0</Elevation>
+      <Site>
+        <Name>Mt. St. Helens West, WA, USA</Name>
+      </Site>
+      <CreationDate>1972-10-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>58</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="1997-06-26T00:00:00.000000Z" endDate="2008-04-01T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.19347</Latitude>
+        <Longitude unit="DEGREES">-122.236351</Longitude>
+        <Elevation>1425.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>162181000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="SOS" startDate="1980-05-16T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.243858</Latitude>
+      <Longitude unit="DEGREES">-122.137871</Longitude>
+      <Elevation>1270.0</Elevation>
+      <Site>
+        <Name>Mt St Helens, Source of Smith Creek, WA, USA</Name>
+      </Site>
+      <CreationDate>1980-05-16T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>30</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2000-07-11T00:00:00.000000Z" endDate="2005-09-13T23:59:59.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.243858</Latitude>
+        <Longitude unit="DEGREES">-122.137871</Longitude>
+        <Elevation>1270.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>185372000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="STD" startDate="1982-05-01T00:00:00.000000Z" endDate="2017-09-14T00:00:00.000000Z" restrictedStatus="open">
+      <Comment>
+        <Value>Shape of high frequency response uncertain (&gt;10 Hz). Gain OK.</Value>
+        <BeginEffectiveTime>1982-05-01T00:00:00.000000Z</BeginEffectiveTime>
+        <EndEffectiveTime>2006-05-25T23:59:59.000000Z</EndEffectiveTime>
+      </Comment>
+      <Comment>
+        <Value>Shape of high frequency response uncertain (&gt;10 Hz). Gain OK.</Value>
+        <BeginEffectiveTime>1982-05-01T00:00:00.000000Z</BeginEffectiveTime>
+        <EndEffectiveTime>2006-05-25T23:59:59.000000Z</EndEffectiveTime>
+      </Comment>
+      <Latitude unit="DEGREES">46.23761</Latitude>
+      <Longitude unit="DEGREES">-122.223961</Longitude>
+      <Elevation>1268.0</Elevation>
+      <Site>
+        <Name>Studebaker Ridge</Name>
+      </Site>
+      <CreationDate>1982-05-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>13</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2000-06-20T00:00:00.000000Z" endDate="2008-04-01T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.23761</Latitude>
+        <Longitude unit="DEGREES">-122.223961</Longitude>
+        <Elevation>1268.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">90.0</Dip>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <CalibrationUnits>
+          <Name>A</Name>
+          <Description>Amperes</Description>
+        </CalibrationUnits>
+        <Sensor>
+          <Description>L4C-1934=McVCO=J110=Wrmsn-XXXX</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>218782000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>M/S</Name>
+              <Description>Velocity in Meters/Second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>COUNTS</Name>
+              <Description>Digital Counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="YEL" startDate="1981-10-01T00:00:00.000000Z" endDate="2007-09-18T00:00:00.000000Z" restrictedStatus="open">
+      <Comment>
+        <Value>Shape of high frequency response uncertain (&gt;10 Hz). Gain OK.</Value>
+        <BeginEffectiveTime>1981-09-01T00:00:00.000000Z</BeginEffectiveTime>
+        <EndEffectiveTime>2006-05-25T23:59:59.000000Z</EndEffectiveTime>
+      </Comment>
+      <Comment>
+        <Value>Shape of high frequency response uncertain (&gt;10 Hz). Gain OK.</Value>
+        <BeginEffectiveTime>1981-09-01T00:00:00.000000Z</BeginEffectiveTime>
+        <EndEffectiveTime>2006-05-25T23:59:59.000000Z</EndEffectiveTime>
+      </Comment>
+      <Latitude unit="DEGREES">46.209549</Latitude>
+      <Longitude unit="DEGREES">-122.188988</Longitude>
+      <Elevation>1750.0</Elevation>
+      <Site>
+        <Name>Yellow Rock, Mt. St. Helens</Name>
+      </Site>
+      <CreationDate>1981-10-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>6</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2004-08-28T00:00:00.000000Z" endDate="2004-10-22T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.209549</Latitude>
+        <Longitude unit="DEGREES">-122.188988</Longitude>
+        <Elevation>1750.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0001</ClockDrift>
+        <CalibrationUnits>
+          <Name>A</Name>
+          <Description>Amperes</Description>
+        </CalibrationUnits>
+        <Sensor>
+          <Description>L4-3415=McVCO=6203=Wrmsn-XXXX</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>323593000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>M/S</Name>
+              <Description>Velocity in Meters/Second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>COUNTS</Name>
+              <Description>Digital Counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+  </Network>
+</FDSNStationXML>

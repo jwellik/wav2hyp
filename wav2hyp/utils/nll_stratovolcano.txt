@@ -1,0 +1,9 @@
+# Jeremy Pesicek default Stratovolcano model - P/S ratio of 1.73 used
+# Simplified for speed
+# Format: NonLinLoc
+LAYER   0.00  4.2669 0.00 2.4664 0.00 2.7 0.0
+LAYER   5.00  5.3846 0.00 3.1125 0.00 2.7 0.0
+LAYER  10.00  5.9561 0.00 3.4429 0.00 2.7 0.0
+LAYER  15.00  6.3930 0.00 3.6954 0.00 2.7 0.0
+LAYER  20.00  6.7230 0.00 3.8861 0.00 2.7 0.0
+LAYER  30.00  7.1085 0.00 4.1089 0.00 2.7 0.0

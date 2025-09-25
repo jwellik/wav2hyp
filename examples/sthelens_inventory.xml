@@ -1,0 +1,2832 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<FDSNStationXML xmlns="http://www.fdsn.org/xml/station/1" schemaVersion="1.2">
+  <Source>IRIS-DMC</Source>
+  <Sender>IRIS-DMC</Sender>
+  <Module>IRIS WEB SERVICE: fdsnws-station | version: 1.1.52</Module>
+  <ModuleURI>http://service.iris.edu/fdsnws/station/1/query?starttime=2021-06-29T00%3A00%3A00.000000&amp;endtime=2021-06-30T00%3A00%3A00.000000&amp;network=UW%2CCC&amp;level=channel&amp;latitude=46.2&amp;longitude=-122.18&amp;maxradius=0.4496608029593653</ModuleURI>
+  <Created>2025-09-10T17:18:42.448900Z</Created>
+  <Network code="CC" startDate="2001-01-01T00:00:00.000000Z" restrictedStatus="open">
+    <Description>Cascade Chain Volcano Monitoring ()</Description>
+    <Identifier type="DOI">10.7914/SN/CC
+   </Identifier>
+    <TotalNumberStations>102</TotalNumberStations>
+    <SelectedNumberStations>13</SelectedNumberStations>
+    <Station code="HOA" startDate="2021-06-08T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.24178</Latitude>
+      <Longitude unit="DEGREES">-122.19183</Longitude>
+      <Elevation>1151.0</Elevation>
+      <Site>
+        <Name>Hoala</Name>
+        <Description>Seismic + 3 component infrasound array; lahar style trunk enclosure</Description>
+        <Town>Mount St. Helens</Town>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2021-06-08T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>23</TotalNumberChannels>
+      <SelectedNumberChannels>6</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2021-06-17T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007301], [SENSOR::64VX::185V], [SENSOR::64VX::186V], [SENSOR::64VX::187V], [LOGGER::CENTAUR::006120]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.24178</Latitude>
+        <Longitude unit="DEGREES">-122.19183</Longitude>
+        <Elevation>1151.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007301</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006120</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301720007.77622455</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2021-06-17T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007301], [SENSOR::64VX::185V], [SENSOR::64VX::186V], [SENSOR::64VX::187V], [LOGGER::CENTAUR::006120]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.24178</Latitude>
+        <Longitude unit="DEGREES">-122.19183</Longitude>
+        <Elevation>1151.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007301</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006120</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301720007.77622455</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2021-06-17T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007301], [SENSOR::64VX::185V], [SENSOR::64VX::186V], [SENSOR::64VX::187V], [LOGGER::CENTAUR::006120]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.24178</Latitude>
+        <Longitude unit="DEGREES">-122.19183</Longitude>
+        <Elevation>1151.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007301</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006120</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301720007.77622455</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="JRO" startDate="2004-10-02T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.27527</Latitude>
+      <Longitude unit="DEGREES">-122.21826</Longitude>
+      <Elevation>1219.0</Elevation>
+      <Site>
+        <Name>Johnston Ridge Observatory</Name>
+        <Description>Enclosure: Inside the Johnson Ridge Observatory / GPS antenna located on roof / USGS Communications tower located on west side side of building. *JRO is closed in the winter - contact USFS for access*; 2WD (4WD recommended)</Description>
+        <Town>Mount St. Helens</Town>
+        <County>Skamania</County>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2004-10-02T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>12</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="HHE" startDate="2020-05-27T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>replace RT-130 with bad timing</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007245], [LOGGER::CENTAUR::006109]</Value>
+          <BeginEffectiveTime>2020-05-27T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27527</Latitude>
+        <Longitude unit="DEGREES">-122.21826</Longitude>
+        <Elevation>1219.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007245</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006109</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301719996.40766555</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHN" startDate="2020-05-27T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>replace RT-130 with bad timing</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007245], [LOGGER::CENTAUR::006109]</Value>
+          <BeginEffectiveTime>2020-05-27T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27527</Latitude>
+        <Longitude unit="DEGREES">-122.21826</Longitude>
+        <Elevation>1219.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007245</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006109</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301719996.40766555</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHZ" startDate="2020-05-27T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>replace RT-130 with bad timing</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007245], [LOGGER::CENTAUR::006109]</Value>
+          <BeginEffectiveTime>2020-05-27T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27527</Latitude>
+        <Longitude unit="DEGREES">-122.21826</Longitude>
+        <Elevation>1219.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007245</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006109</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301719996.40766555</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="LOO" startDate="2021-06-08T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.22375</Latitude>
+      <Longitude unit="DEGREES">-122.18439</Longitude>
+      <Elevation>1521.35</Elevation>
+      <Site>
+        <Name>Loowit</Name>
+        <Description>Seismic station; Hut style station</Description>
+        <Town>Mount St. Helens</Town>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2021-06-08T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>9</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2021-06-09T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006546], [LOGGER::CENTAUR::005487]</Value>
+          <BeginEffectiveTime>2021-06-09T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.22375</Latitude>
+        <Longitude unit="DEGREES">-122.18439</Longitude>
+        <Elevation>1521.3</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006546</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005487</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2021-06-09T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006546], [LOGGER::CENTAUR::005487]</Value>
+          <BeginEffectiveTime>2021-06-09T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.22375</Latitude>
+        <Longitude unit="DEGREES">-122.18439</Longitude>
+        <Elevation>1521.3</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006546</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005487</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2021-06-09T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006546], [LOGGER::CENTAUR::005487]</Value>
+          <BeginEffectiveTime>2021-06-09T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.22375</Latitude>
+        <Longitude unit="DEGREES">-122.18439</Longitude>
+        <Elevation>1521.3</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006546</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005487</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="MAR" startDate="2021-06-17T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.28532</Latitude>
+      <Longitude unit="DEGREES">-122.29667</Longitude>
+      <Elevation>679.27</Elevation>
+      <Site>
+        <Name>Maratta</Name>
+        <Description>Seismic + 3 component infrasound array; lahar style trunk enclosure</Description>
+        <Town>Mount St. Helens</Town>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2021-06-17T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>19</TotalNumberChannels>
+      <SelectedNumberChannels>6</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2021-06-17T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007303], [SENSOR::64VX::194V], [SENSOR::64VX::205V], [SENSOR::64VX::207V], [LOGGER::CENTAUR::006110]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.28532</Latitude>
+        <Longitude unit="DEGREES">-122.29667</Longitude>
+        <Elevation>679.3</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007303</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006110</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301720007.77622455</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2021-06-17T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007303], [SENSOR::64VX::194V], [SENSOR::64VX::205V], [SENSOR::64VX::207V], [LOGGER::CENTAUR::006110]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.28532</Latitude>
+        <Longitude unit="DEGREES">-122.29667</Longitude>
+        <Elevation>679.3</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007303</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006110</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301720007.77622455</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2021-06-17T00:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007303], [SENSOR::64VX::194V], [SENSOR::64VX::205V], [SENSOR::64VX::207V], [LOGGER::CENTAUR::006110]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.28532</Latitude>
+        <Longitude unit="DEGREES">-122.29667</Longitude>
+        <Elevation>679.3</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>007303</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006110</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>301720007.77622455</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="NFT" startDate="2021-06-08T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.27</Latitude>
+      <Longitude unit="DEGREES">-122.25611</Longitude>
+      <Elevation>818.16</Elevation>
+      <Site>
+        <Name>North Fork Toutle</Name>
+        <Description>Seismic station; lahar style trunk enclosure</Description>
+        <Town>Mount St. Helens</Town>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2021-06-08T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>12</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2021-06-09T00:00:00.000000Z" endDate="2021-07-28T12:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006521], [LOGGER::CENTAUR::007335]</Value>
+          <BeginEffectiveTime>2021-06-09T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2021-07-28T12:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27</Latitude>
+        <Longitude unit="DEGREES">-122.25611</Longitude>
+        <Elevation>818.2</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006521</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>007335</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2021-06-09T00:00:00.000000Z" endDate="2021-07-28T12:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006521], [LOGGER::CENTAUR::007335]</Value>
+          <BeginEffectiveTime>2021-06-09T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2021-07-28T12:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27</Latitude>
+        <Longitude unit="DEGREES">-122.25611</Longitude>
+        <Elevation>818.2</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006521</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>007335</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2021-06-09T00:00:00.000000Z" endDate="2021-07-28T12:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006521], [LOGGER::CENTAUR::007335]</Value>
+          <BeginEffectiveTime>2021-06-09T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2021-07-28T12:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27</Latitude>
+        <Longitude unit="DEGREES">-122.25611</Longitude>
+        <Elevation>818.2</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006521</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>007335</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="REM" startDate="2018-07-25T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.2002</Latitude>
+      <Longitude unit="DEGREES">-122.1855</Longitude>
+      <Elevation>1905.44</Elevation>
+      <Site>
+        <Name>Rembrant, Mount St. Helens</Name>
+        <Description>Aluminum box with single solar/radio mast, high in the crater on the East side of the dome. Seismic and tiltmeter</Description>
+        <Town>Mount St. Helens</Town>
+        <County>Skamania</County>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2018-07-25T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>6</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2020-08-13T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade from RT130 SN B065</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006548], [LOGGER::CENTAUR::005467]</Value>
+          <BeginEffectiveTime>2020-08-13T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.2002</Latitude>
+        <Longitude unit="DEGREES">-122.1855</Longitude>
+        <Elevation>1905.4</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006548</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005467</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2020-08-13T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade from RT130 SN B065</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006548], [LOGGER::CENTAUR::005467]</Value>
+          <BeginEffectiveTime>2020-08-13T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.2002</Latitude>
+        <Longitude unit="DEGREES">-122.1855</Longitude>
+        <Elevation>1905.4</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006548</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005467</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2020-08-13T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade from RT130 SN B065</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006548], [LOGGER::CENTAUR::005467]</Value>
+          <BeginEffectiveTime>2020-08-13T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.2002</Latitude>
+        <Longitude unit="DEGREES">-122.1855</Longitude>
+        <Elevation>1905.4</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006548</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005467</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="SEP" startDate="2004-11-05T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.19978</Latitude>
+      <Longitude unit="DEGREES">-122.190857</Longitude>
+      <Elevation>2114.0</Elevation>
+      <Site>
+        <Name>September lobe, Mt. St. Helens (Dome sta)</Name>
+        <Description>Seismic and Infrasound fiberglass hut installation located on september lobe of the 1980s dome. Transmits data to JRO.  Co-located GPS site SEPR.; Helicopter access</Description>
+        <Town>Mt. St. Helens</Town>
+        <County>Skamania Co.</County>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2004-11-05T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>66</TotalNumberChannels>
+      <SelectedNumberChannels>4</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2019-07-25T22:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade to broadband</Description>
+        <Comment>
+          <Value>[SENSOR::64VX::140V], [SENSOR::TRILLIUM COMPACT PH::005787], [LOGGER::CENTAUR::002963]</Value>
+          <BeginEffectiveTime>2019-07-25T22:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19978</Latitude>
+        <Longitude unit="DEGREES">-122.190857</Longitude>
+        <Elevation>2114.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>005787</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Model>CENTAUR</Model>
+          <SerialNumber>002963</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2019-07-25T22:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade to broadband</Description>
+        <Comment>
+          <Value>[SENSOR::64VX::140V], [SENSOR::TRILLIUM COMPACT PH::005787], [LOGGER::CENTAUR::002963]</Value>
+          <BeginEffectiveTime>2019-07-25T22:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19978</Latitude>
+        <Longitude unit="DEGREES">-122.190857</Longitude>
+        <Elevation>2114.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>005787</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Model>CENTAUR</Model>
+          <SerialNumber>002963</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2019-07-25T22:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade to broadband</Description>
+        <Comment>
+          <Value>[SENSOR::64VX::140V], [SENSOR::TRILLIUM COMPACT PH::005787], [LOGGER::CENTAUR::002963]</Value>
+          <BeginEffectiveTime>2019-07-25T22:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19978</Latitude>
+        <Longitude unit="DEGREES">-122.190857</Longitude>
+        <Elevation>2114.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>005787</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Model>CENTAUR</Model>
+          <SerialNumber>002963</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="STD" startDate="2004-10-05T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.23749</Latitude>
+      <Longitude unit="DEGREES">-122.22421</Longitude>
+      <Elevation>1189.0</Elevation>
+      <Site>
+        <Name>Studebaker Ridge, Mount St. Helens</Name>
+        <Description>Seismic(STD) and GPS (TSTU) were separated by ~5m but seismic has been relocated to monument and now sites share power and telemetry.</Description>
+        <Town>Mount St. Helens</Town>
+        <County>Skamania</County>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2004-10-05T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>15</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2020-08-12T20:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="01">
+        <Description>Upgrade from reftek to centaur, move to TSTU</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006529], [LOGGER::CENTAUR::005466]</Value>
+          <BeginEffectiveTime>2020-08-12T20:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.236828</Latitude>
+        <Longitude unit="DEGREES">-122.224084</Longitude>
+        <Elevation>1259.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006529</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005466</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2020-08-12T20:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="01">
+        <Description>Upgrade from reftek to centaur, move to TSTU</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006529], [LOGGER::CENTAUR::005466]</Value>
+          <BeginEffectiveTime>2020-08-12T20:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.236828</Latitude>
+        <Longitude unit="DEGREES">-122.224084</Longitude>
+        <Elevation>1259.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006529</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005466</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2020-08-12T20:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="01">
+        <Description>Upgrade from reftek to centaur, move to TSTU</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006529], [LOGGER::CENTAUR::005466]</Value>
+          <BeginEffectiveTime>2020-08-12T20:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.236828</Latitude>
+        <Longitude unit="DEGREES">-122.224084</Longitude>
+        <Elevation>1259.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006529</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005466</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="SUG" startDate="2009-08-07T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.215549</Latitude>
+      <Longitude unit="DEGREES">-122.176262</Longitude>
+      <Elevation>1859.0</Elevation>
+      <Site>
+        <Name>Sugar Bowl</Name>
+        <Description>Fiberglass Hut on North East Ridge. Seismic and Webcam.</Description>
+        <Town>Mount St. Helens</Town>
+        <County>Skamania</County>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2009-08-07T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>18</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2020-07-15T11:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade from RT130 SN BD17/G9026441</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006520]</Value>
+          <BeginEffectiveTime>2020-07-15T11:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[LOGGER::CENTAUR::005480], [SENSOR::TRILLIUM COMPACT POSTHOLE::006520]</Value>
+          <BeginEffectiveTime>2020-07-15T11:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.215363</Latitude>
+        <Longitude unit="DEGREES">-122.176011</Longitude>
+        <Elevation>1864.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006520</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005480</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2020-07-15T11:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade from RT130 SN BD17/G9026441</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006520]</Value>
+          <BeginEffectiveTime>2020-07-15T11:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[LOGGER::CENTAUR::005480], [SENSOR::TRILLIUM COMPACT POSTHOLE::006520]</Value>
+          <BeginEffectiveTime>2020-07-15T11:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.215363</Latitude>
+        <Longitude unit="DEGREES">-122.176011</Longitude>
+        <Elevation>1864.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006520</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005480</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2020-07-15T11:00:00.000000Z" endDate="2023-04-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade from RT130 SN BD17/G9026441</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006520]</Value>
+          <BeginEffectiveTime>2020-07-15T11:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[LOGGER::CENTAUR::005480], [SENSOR::TRILLIUM COMPACT POSTHOLE::006520]</Value>
+          <BeginEffectiveTime>2020-07-15T11:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-04-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.215363</Latitude>
+        <Longitude unit="DEGREES">-122.176011</Longitude>
+        <Elevation>1864.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006520</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005480</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="SWF2" startDate="2013-08-29T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.178349</Latitude>
+      <Longitude unit="DEGREES">-122.216766</Longitude>
+      <Elevation>1548.0</Elevation>
+      <Site>
+        <Name>Southwest Flank 2, Mount St. Helens</Name>
+        <Description>Fiberglass Hut on Southwest Flank of MSH</Description>
+        <Town>Mount St. Helens</Town>
+        <County>Skamania</County>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2013-08-29T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>12</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2020-07-15T01:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade rt130 SN BD0B/G9026440 &amp; TC120 SN 00641/G9004643</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006518]</Value>
+          <BeginEffectiveTime>2020-07-15T01:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006518], [LOGGER::CENTAUR::005472]</Value>
+          <BeginEffectiveTime>2020-07-15T01:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.178288</Latitude>
+        <Longitude unit="DEGREES">-122.216544</Longitude>
+        <Elevation>1538.0</Elevation>
+        <Depth>0.6</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006518</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005472</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2020-07-15T01:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade rt130 SN BD0B/G9026440 &amp; TC120 SN 00641/G9004643</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006518]</Value>
+          <BeginEffectiveTime>2020-07-15T01:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006518], [LOGGER::CENTAUR::005472]</Value>
+          <BeginEffectiveTime>2020-07-15T01:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.178288</Latitude>
+        <Longitude unit="DEGREES">-122.216544</Longitude>
+        <Elevation>1538.0</Elevation>
+        <Depth>0.6</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006518</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005472</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2020-07-15T01:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Description>Upgrade rt130 SN BD0B/G9026440 &amp; TC120 SN 00641/G9004643</Description>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006518]</Value>
+          <BeginEffectiveTime>2020-07-15T01:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006518], [LOGGER::CENTAUR::005472]</Value>
+          <BeginEffectiveTime>2020-07-15T01:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.178288</Latitude>
+        <Longitude unit="DEGREES">-122.216544</Longitude>
+        <Elevation>1538.0</Elevation>
+        <Depth>0.6</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006518</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005472</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="UNFR" startDate="2021-06-17T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.27251</Latitude>
+      <Longitude unit="DEGREES">-122.291983</Longitude>
+      <Elevation>884.0</Elevation>
+      <Site>
+        <Name>Upper North Fork Repeater</Name>
+        <Description>Hut style seismic station and repeater site</Description>
+        <Town>Mount St. Helens</Town>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2021-06-17T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>3</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2021-06-17T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006528], [LOGGER::CENTAUR::006134]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27251</Latitude>
+        <Longitude unit="DEGREES">-122.291983</Longitude>
+        <Elevation>884.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006528</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006134</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2021-06-17T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006528], [LOGGER::CENTAUR::006134]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27251</Latitude>
+        <Longitude unit="DEGREES">-122.291983</Longitude>
+        <Elevation>884.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006528</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006134</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2021-06-17T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::006528], [LOGGER::CENTAUR::006134]</Value>
+          <BeginEffectiveTime>2021-06-17T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.27251</Latitude>
+        <Longitude unit="DEGREES">-122.291983</Longitude>
+        <Elevation>884.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006528</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>006134</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="VALT" startDate="2006-08-01T00:00:00.000000Z" endDate="2024-06-06T19:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.214218</Latitude>
+      <Longitude unit="DEGREES">-122.189247</Longitude>
+      <Elevation>1681.0</Elevation>
+      <Site>
+        <Name>Vault, Mount St. Helens</Name>
+        <Description>Aluminum box North of the crater glacier. Seismic site only.</Description>
+        <Town>Mount St. Helens</Town>
+        <County>Skamania</County>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2006-08-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>12</TotalNumberChannels>
+      <SelectedNumberChannels>3</SelectedNumberChannels>
+      <Channel code="BHE" startDate="2019-09-25T18:00:00.000000Z" endDate="2024-06-06T19:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[LOGGER::CENTAUR::005516], [SENSOR::TRILLIUM COMPACT POSTHOLE::006555]</Value>
+          <BeginEffectiveTime>2019-09-25T18:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2024-06-06T19:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.214218</Latitude>
+        <Longitude unit="DEGREES">-122.189247</Longitude>
+        <Elevation>1681.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006555</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005516</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHN" startDate="2019-09-25T18:00:00.000000Z" endDate="2024-06-06T19:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[LOGGER::CENTAUR::005516], [SENSOR::TRILLIUM COMPACT POSTHOLE::006555]</Value>
+          <BeginEffectiveTime>2019-09-25T18:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2024-06-06T19:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.214218</Latitude>
+        <Longitude unit="DEGREES">-122.189247</Longitude>
+        <Elevation>1681.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006555</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005516</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="BHZ" startDate="2019-09-25T18:00:00.000000Z" endDate="2024-06-06T19:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[LOGGER::CENTAUR::005516], [SENSOR::TRILLIUM COMPACT POSTHOLE::006555]</Value>
+          <BeginEffectiveTime>2019-09-25T18:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2024-06-06T19:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.214218</Latitude>
+        <Longitude unit="DEGREES">-122.189247</Longitude>
+        <Elevation>1681.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">50.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Sensor</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM COMPACT POSTHOLE</Model>
+          <SerialNumber>006555</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>NANOMETRICS</Type>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>CENTAUR</Model>
+          <SerialNumber>005516</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640007.7226168</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+  </Network>
+  <Network code="UW" startDate="1963-01-01T00:00:00.000000Z" restrictedStatus="open">
+    <Description>Pacific Northwest Seismic Network (PNSN)</Description>
+    <Identifier type="DOI">10.7914/SN/UW
+   </Identifier>
+    <TotalNumberStations>886</TotalNumberStations>
+    <SelectedNumberStations>14</SelectedNumberStations>
+    <Station code="ASR" startDate="1982-09-01T00:00:00.000000Z" endDate="2023-05-16T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.15259</Latitude>
+      <Longitude unit="DEGREES">-121.60164</Longitude>
+      <Elevation>1357.0</Elevation>
+      <Site>
+        <Name>Mt. Adams - Stagman Ridge, WA, USA</Name>
+      </Site>
+      <CreationDate>1982-09-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>18</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2019-09-12T00:00:00.000000Z" endDate="2023-05-16T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>Instrument Swap</Value>
+          <BeginEffectiveTime>2019-09-12T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-05-16T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[SENSOR::L-4C VERTICAL::16]</Value>
+          <BeginEffectiveTime>2019-09-12T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2023-05-16T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.152592</Latitude>
+        <Longitude unit="DEGREES">-121.601639</Longitude>
+        <Elevation>1357.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>575765000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="CDF" startDate="1980-03-29T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.11712</Latitude>
+      <Longitude unit="DEGREES">-122.04625</Longitude>
+      <Elevation>772.0</Elevation>
+      <Site>
+        <Name>Cedar Flats, MSH, WA, USA</Name>
+      </Site>
+      <CreationDate>1980-03-29T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>64</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2008-04-01T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.11689</Latitude>
+        <Longitude unit="DEGREES">-122.046227</Longitude>
+        <Elevation>756.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>S-13,Velocity Sensor,GEOTECH</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>145996000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="CINE" startDate="2019-05-06T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.5566</Latitude>
+      <Longitude unit="DEGREES">-122.5673</Longitude>
+      <Elevation>203.4</Elevation>
+      <Site>
+        <Name>Cinebar, WA, USA</Name>
+        <Town>Cinebar</Town>
+        <County>Lewis</County>
+        <Region>WA</Region>
+        <Country>USA</Country>
+      </Site>
+      <CreationDate>2019-05-06T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>74</TotalNumberChannels>
+      <SelectedNumberChannels>40</SelectedNumberChannels>
+      <Channel code="HHE" startDate="2019-09-26T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>Installed repaired broadband</Value>
+          <BeginEffectiveTime>2019-09-26T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>Install, Remove, or Swap Sensors and Preamplifiers Connected to Logger [SENSOR::EPISENSOR ES-T::7517], [SENSOR::TRILLIUM 120QA::2507], [LOGGER::Q330S+::6176]</Value>
+          <BeginEffectiveTime>2019-09-26T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.5566</Latitude>
+        <Longitude unit="DEGREES">-122.5673</Longitude>
+        <Elevation>203.4</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Transducer</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM 120QA</Model>
+          <SerialNumber>2507</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>QUANTERRA</Type>
+          <Manufacturer>QUANTERRA</Manufacturer>
+          <Vendor>Kinemetrics</Vendor>
+          <Model>Q330S+</Model>
+          <SerialNumber>6176</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>504364575.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHN" startDate="2019-09-26T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>Installed repaired broadband</Value>
+          <BeginEffectiveTime>2019-09-26T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>Install, Remove, or Swap Sensors and Preamplifiers Connected to Logger [SENSOR::EPISENSOR ES-T::7517], [SENSOR::TRILLIUM 120QA::2507], [LOGGER::Q330S+::6176]</Value>
+          <BeginEffectiveTime>2019-09-26T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.5566</Latitude>
+        <Longitude unit="DEGREES">-122.5673</Longitude>
+        <Elevation>203.4</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Transducer</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM 120QA</Model>
+          <SerialNumber>2507</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>QUANTERRA</Type>
+          <Manufacturer>QUANTERRA</Manufacturer>
+          <Vendor>Kinemetrics</Vendor>
+          <Model>Q330S+</Model>
+          <SerialNumber>6176</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>504364575.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHZ" startDate="2019-09-26T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>Installed repaired broadband</Value>
+          <BeginEffectiveTime>2019-09-26T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>Install, Remove, or Swap Sensors and Preamplifiers Connected to Logger [SENSOR::EPISENSOR ES-T::7517], [SENSOR::TRILLIUM 120QA::2507], [LOGGER::Q330S+::6176]</Value>
+          <BeginEffectiveTime>2019-09-26T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.5566</Latitude>
+        <Longitude unit="DEGREES">-122.5673</Longitude>
+        <Elevation>203.4</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <Sensor>
+          <Type>NANOMETRICS</Type>
+          <Description>Velocity Transducer</Description>
+          <Manufacturer>NANOMETRICS</Manufacturer>
+          <Vendor>Nanometrics</Vendor>
+          <Model>TRILLIUM 120QA</Model>
+          <SerialNumber>2507</SerialNumber>
+        </Sensor>
+        <DataLogger>
+          <Type>QUANTERRA</Type>
+          <Manufacturer>QUANTERRA</Manufacturer>
+          <Vendor>Kinemetrics</Vendor>
+          <Model>Q330S+</Model>
+          <SerialNumber>6176</SerialNumber>
+        </DataLogger>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>504364575.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="EDM" startDate="1980-06-01T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.19717</Latitude>
+      <Longitude unit="DEGREES">-122.15121</Longitude>
+      <Elevation>1611.0</Elevation>
+      <Site>
+        <Name>East Dome, Mt. St. Helens, WA, USA</Name>
+      </Site>
+      <CreationDate>1980-06-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>49</TotalNumberChannels>
+      <SelectedNumberChannels>38</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2008-04-01T00:00:00.000000Z" endDate="2024-06-06T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.19717</Latitude>
+        <Longitude unit="DEGREES">-122.15121</Longitude>
+        <Elevation>1609.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>110128000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHE" startDate="2021-06-18T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007852], [LOGGER::CENTAUR::007028]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19717</Latitude>
+        <Longitude unit="DEGREES">-122.15121</Longitude>
+        <Elevation>1610.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM COMPACT POSTHOLE,Velocity Sensor,NANOMETR</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHN" startDate="2021-06-18T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007852], [LOGGER::CENTAUR::007028]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19717</Latitude>
+        <Longitude unit="DEGREES">-122.15121</Longitude>
+        <Elevation>1610.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM COMPACT POSTHOLE,Velocity Sensor,NANOMETR</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHZ" startDate="2021-06-18T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007852], [LOGGER::CENTAUR::007028]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19717</Latitude>
+        <Longitude unit="DEGREES">-122.15121</Longitude>
+        <Elevation>1610.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM COMPACT POSTHOLE,Velocity Sensor,NANOMETR</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="ELK" startDate="1980-05-16T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.30597</Latitude>
+      <Longitude unit="DEGREES">-122.34167</Longitude>
+      <Elevation>1270.0</Elevation>
+      <Site>
+        <Name>Mt St Helens, Elk Rock, WA, USA</Name>
+      </Site>
+      <CreationDate>1980-05-16T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>35</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2013-10-04T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.30597</Latitude>
+        <Longitude unit="DEGREES">-122.34167</Longitude>
+        <Elevation>1270.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>469746000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="FL2" startDate="1984-08-03T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.19622</Latitude>
+      <Longitude unit="DEGREES">-122.35149</Longitude>
+      <Elevation>1378.0</Elevation>
+      <Site>
+        <Name>Flat Top 2, WA, USA</Name>
+      </Site>
+      <CreationDate>1984-08-03T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>23</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2008-04-01T00:00:00.000000Z" endDate="2025-01-09T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.19622</Latitude>
+        <Longitude unit="DEGREES">-122.35149</Longitude>
+        <Elevation>1378.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>404503000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="HSR" startDate="1985-08-12T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.17428</Latitude>
+      <Longitude unit="DEGREES">-122.18065</Longitude>
+      <Elevation>1720.0</Elevation>
+      <Site>
+        <Name>South Ridge, Mt. St. Helens, WA, USA</Name>
+      </Site>
+      <CreationDate>1985-08-12T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>35</TotalNumberChannels>
+      <SelectedNumberChannels>2</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2008-04-01T00:00:00.000000Z" endDate="2024-06-06T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.17428</Latitude>
+        <Longitude unit="DEGREES">-122.18065</Longitude>
+        <Elevation>1720.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>S-13,Velocity Sensor,GEOTECH</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>70063200.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="MTM" startDate="1980-03-27T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.02533</Latitude>
+      <Longitude unit="DEGREES">-122.21287</Longitude>
+      <Elevation>1121.0</Elevation>
+      <Site>
+        <Name>Mt. Mitchell, WA, USA</Name>
+      </Site>
+      <CreationDate>1980-03-27T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>26</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2009-04-10T00:00:00.000000Z" endDate="2024-01-10T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.02533</Latitude>
+        <Longitude unit="DEGREES">-122.21287</Longitude>
+        <Elevation>1121.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>650878000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="PUPY" startDate="2019-10-30T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.49542</Latitude>
+      <Longitude unit="DEGREES">-122.14613</Longitude>
+      <Elevation>816.3</Elevation>
+      <Site>
+        <Name>Dog Mt, WA, USA</Name>
+      </Site>
+      <CreationDate>2019-10-30T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>22</TotalNumberChannels>
+      <SelectedNumberChannels>22</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2019-10-31T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::L-4C VERTICAL::15], [INTERNAL-SENSOR::EPISENSOR ES-DECK::Obsi</Value>
+          <BeginEffectiveTime>2019-10-31T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.49542</Latitude>
+        <Longitude unit="DEGREES">-122.14613</Longitude>
+        <Elevation>815.3</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>1344390000.0</Value>
+            <Frequency>5.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="RVW2" startDate="2018-08-09T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.152752</Latitude>
+      <Longitude unit="DEGREES">-122.74122</Longitude>
+      <Elevation>573.9</Elevation>
+      <Site>
+        <Name>Rose Valley, WA, USA</Name>
+      </Site>
+      <CreationDate>2018-08-09T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>37</TotalNumberChannels>
+      <SelectedNumberChannels>4</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2018-08-09T00:00:00.000000Z" endDate="2022-07-24T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::EPISENSOR ES-T::5423], [SENSOR::L-4C VERTICAL::2929], [AMPLIF</Value>
+          <BeginEffectiveTime>2018-08-09T00:00:00.000000Z</BeginEffectiveTime>
+          <EndEffectiveTime>2022-07-24T00:00:00.000000Z</EndEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.152752</Latitude>
+        <Longitude unit="DEGREES">-122.74122</Longitude>
+        <Elevation>572.9</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>1968750000.0</Value>
+            <Frequency>5.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="SHW" startDate="1972-10-01T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.19364</Latitude>
+      <Longitude unit="DEGREES">-122.23492</Longitude>
+      <Elevation>1442.0</Elevation>
+      <Site>
+        <Name>Mt. St. Helens West, WA, USA</Name>
+      </Site>
+      <CreationDate>1972-10-01T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>58</TotalNumberChannels>
+      <SelectedNumberChannels>39</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2018-09-05T00:00:00.000000Z" endDate="2021-09-16T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.19364</Latitude>
+        <Longitude unit="DEGREES">-122.23492</Longitude>
+        <Elevation>1442.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>111603000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHE" startDate="2021-06-18T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007854]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007854], [LOGGER::CENTAUR::007029]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19364</Latitude>
+        <Longitude unit="DEGREES">-122.23492</Longitude>
+        <Elevation>1441.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM COMPACT POSTHOLE,Velocity Sensor,NANOMETR</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHN" startDate="2021-06-18T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007854]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007854], [LOGGER::CENTAUR::007029]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19364</Latitude>
+        <Longitude unit="DEGREES">-122.23492</Longitude>
+        <Elevation>1441.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM COMPACT POSTHOLE,Velocity Sensor,NANOMETR</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHZ" startDate="2021-06-18T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007854]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Comment>
+          <Value>[SENSOR::TRILLIUM COMPACT POSTHOLE::007854], [LOGGER::CENTAUR::007029]</Value>
+          <BeginEffectiveTime>2021-06-18T00:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">46.19364</Latitude>
+        <Longitude unit="DEGREES">-122.23492</Longitude>
+        <Elevation>1441.0</Elevation>
+        <Depth>1.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM COMPACT POSTHOLE,Velocity Sensor,NANOMETR</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>299640000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="SOS" startDate="1980-05-16T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.243858</Latitude>
+      <Longitude unit="DEGREES">-122.137871</Longitude>
+      <Elevation>1270.0</Elevation>
+      <Site>
+        <Name>Mt St Helens, Source of Smith Creek, WA, USA</Name>
+      </Site>
+      <CreationDate>1980-05-16T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>30</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2008-04-01T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.243858</Latitude>
+        <Longitude unit="DEGREES">-122.137871</Longitude>
+        <Elevation>1270.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>130859000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="TDL" startDate="1983-11-12T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">46.35067</Latitude>
+      <Longitude unit="DEGREES">-122.21704</Longitude>
+      <Elevation>1400.0</Elevation>
+      <Site>
+        <Name>Tradedollar Lake, WA, USA</Name>
+      </Site>
+      <CreationDate>1983-11-12T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>6</TotalNumberChannels>
+      <SelectedNumberChannels>1</SelectedNumberChannels>
+      <Channel code="EHZ" startDate="2008-04-01T00:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Latitude unit="DEGREES">46.35067</Latitude>
+        <Longitude unit="DEGREES">-122.21704</Longitude>
+        <Elevation>1400.0</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>L-4C VERTICAL,Velocity Sensor,SERCEL</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>411028000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+    <Station code="YACT" startDate="2005-05-10T00:00:00.000000Z" restrictedStatus="open">
+      <Latitude unit="DEGREES">45.9325</Latitude>
+      <Longitude unit="DEGREES">-122.4193</Longitude>
+      <Elevation>214.0</Elevation>
+      <Site>
+        <Name>Yacolt, WA, USA</Name>
+      </Site>
+      <CreationDate>2005-05-10T00:00:00.000000Z</CreationDate>
+      <TotalNumberChannels>82</TotalNumberChannels>
+      <SelectedNumberChannels>48</SelectedNumberChannels>
+      <Channel code="HHE" startDate="2020-10-17T18:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[LOGGER::Q330S+::7207], [SENSOR::TRILLIUM 120QA::3057]</Value>
+          <BeginEffectiveTime>2020-10-17T18:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">45.9325</Latitude>
+        <Longitude unit="DEGREES">-122.4193</Longitude>
+        <Elevation>211.2</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">90.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM 120QA,Velocity Sensor,NANOMETRICS</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>504365000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHN" startDate="2020-10-17T18:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[LOGGER::Q330S+::7207], [SENSOR::TRILLIUM 120QA::3057]</Value>
+          <BeginEffectiveTime>2020-10-17T18:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">45.9325</Latitude>
+        <Longitude unit="DEGREES">-122.4193</Longitude>
+        <Elevation>211.2</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">0.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM 120QA,Velocity Sensor,NANOMETRICS</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>504365000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+      <Channel code="HHZ" startDate="2020-10-17T18:00:00.000000Z" restrictedStatus="open" locationCode="">
+        <Comment>
+          <Value>[LOGGER::Q330S+::7207], [SENSOR::TRILLIUM 120QA::3057]</Value>
+          <BeginEffectiveTime>2020-10-17T18:00:00.000000Z</BeginEffectiveTime>
+        </Comment>
+        <Latitude unit="DEGREES">45.9325</Latitude>
+        <Longitude unit="DEGREES">-122.4193</Longitude>
+        <Elevation>211.2</Elevation>
+        <Depth>0.0</Depth>
+        <Azimuth unit="DEGREES">0.0</Azimuth>
+        <Dip unit="DEGREES">-90.0</Dip>
+        <Type>CONTINUOUS</Type>
+        <Type>GEOPHYSICAL</Type>
+        <SampleRate unit="SAMPLES/S">100.0</SampleRate>
+        <ClockDrift unit="SECONDS/SAMPLE">0.0</ClockDrift>
+        <Sensor>
+          <Description>TRILLIUM 120QA,Velocity Sensor,NANOMETRICS</Description>
+        </Sensor>
+        <Response>
+          <InstrumentSensitivity>
+            <Value>504365000.0</Value>
+            <Frequency>1.0</Frequency>
+            <InputUnits>
+              <Name>m/s</Name>
+              <Description>Velocity in meters per second</Description>
+            </InputUnits>
+            <OutputUnits>
+              <Name>counts</Name>
+              <Description>Digital Count in Digital counts</Description>
+            </OutputUnits>
+          </InstrumentSensitivity>
+        </Response>
+      </Channel>
+    </Station>
+  </Network>
+</FDSNStationXML>

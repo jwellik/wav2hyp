@@ -1,0 +1,135 @@
+# WAV2HYP Configuration File
+# Waveform to Hypocenter Processing Pipeline
+
+# Target of Interest (Volcano/Study Area)
+target:
+  name: "St. Helens"
+  latitude: 46.2
+  longitude: -122.18
+  elevation: 2549.0  # meters
+
+# Times of Interest
+# 2004/09/23–2004/09/24  # default REDPy backfill dates
+  
+# # Waveform Client
+# waveform_client:
+#   datasource: "IRIS"  # FDSN data center (auto-detected by VClient)
+
+# Waveform Client - Alternatives
+# # Earthworm
+# waveform_client:
+#   datasource: "192.168.0.104"  # Earthworm server hostname/IP
+#   client_type: "earthworm"     # Explicitly specify client type
+#   port: 16024                  # Earthworm server port
+
+# SDS filesystem
+waveform_client:
+  # datasource: "/path/to/sds/data"  # Path to SDS directory structure (auto-detected by VClient)
+  datasource: "/VDAP-NAS/jwellik/DATA/CVO/MSH2004_SDS"  # Path to SDS directory structure (auto-detected by VClient)
+    
+# Station Inventory
+inventory:
+#  file: "./examples/sthelens_inventory.xml"
+  file: "./examples/sthelens_inventory_redpy.xml"  # Limited to 8 stations used by REDPy defaults
+
+# Output Directory Configuration
+output:
+  base_dir: "./results/sthelens"
+  picker_dir: "picks"
+  associator_dir: "associations" 
+  locator_dir: "locations"
+  log_dir: "logs"
+  summary_filename: "sthelens_qc_summary.txt"
+  
+# Phase Picker Settings (EQTransformer)
+picker:
+  model: "volpick"   # Pre-trained model optimized for volcanic seismicity
+  p_threshold: 0.10  # P-wave detection threshold
+  s_threshold: 0.10  # S-wave detection threshold
+  d_threshold: 0.10  # Detection threshold
+  use_cuda: true     # Use GPU acceleration if available
+  
+# Event Association Settings (PyOcto)
+associator:
+  # Search Area
+  radius_km: 250.0          # Search radius around target (km)
+  depth_limits: [-5, 50]    # Min/max depth (km, negative = above sea level)
+  
+  # Velocity Model (0D)
+  p_velocity: 4.5           # P-wave velocity (km/s)
+  s_velocity: 2.5           # S-wave velocity (km/s) 
+  tolerance: 2.0            # Pick association tolerance (seconds)
+  association_cutoff: 250   # Maximum association distance (km)
+  time_before: 300.0        # Time window to look back for picks (seconds)
+  
+  # Event Quality Criteria
+  min_p_picks: 5            # Minimum P picks required for event
+  min_s_picks: 1            # Minimum S picks required for event
+  min_p_and_s_picks: 1      # Minimum stations with both P and S picks
+  
+# Event Location Settings (NonLinLoc)
+locator:
+  # NonLinLoc working directory (must contain velocity models and grids)
+  nll_home: "./results/sthelens/locations/nll_sthelens"  # This is the wrong spot right meow
+#  nll_home: "./results/sthelens/locations/nll_sthelens"
+  
+  # Configuration name for NLL control files
+  config_name: "sthelens"
+  
+  # Station format for NLL (STA uses station codes only)
+  station_format: "STA"
+  
+  # Grid and velocity model settings (set in nllpy config)
+  run_vel2grid: true       # Run vel2grid command (only needs to be done the first time)
+  run_grid2time: true      # Run grid2time command (only needs to be done the first time)
+  
+# File Format Settings
+file_formats:
+  # HDF5 compression settings
+  hdf5_compression:
+    complevel: 9            # Compression level (0-9, 9=max)
+    complib: "blosc"        # Compression library
+    
+  # PyASDF settings for QuakeML storage
+  pyasdf:
+    fallback_to_xml: true   # Create XML files if PyASDF unavailable
+    
+# Processing Control
+processing:
+  # Default processing steps (can be overridden by command line)
+  skip_picker: false
+  skip_associator: false
+  skip_locator: false
+  
+  # Data validation
+  validate_inventory: true   # Check inventory file exists
+  validate_output_dirs: true # Create output directories if needed
+  
+# Logging Configuration
+logging:
+  level: "INFO"             # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  
+# Metadata Storage
+metadata:
+  # Additional attributes to store with results
+  processing_version: "2.0"
+  author: "WAV2HYP Pipeline"
+  institution: "Volcano Observatory"
+  
+  # Data provenance tracking
+  track_processing_time: true
+  track_data_ranges: true
+  track_parameters: true
+
+# Advanced Settings
+advanced:
+  # Memory management
+  max_memory_gb: 8.0        # Maximum memory usage hint
+  
+  # Error handling
+  continue_on_error: false  # Stop processing on first error
+  
+  # Temporary files
+  cleanup_temp_files: true  # Remove temporary files after processing
+  temp_dir: "/tmp"          # Directory for temporary files
