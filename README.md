@@ -229,5 +229,5 @@ If you use WAV2HYP in your research, please cite:
 ```
 WAV2HYP: Waveform to Hypocenter Processing Pipeline
 Version 1.0.0
-https://github.com/your-org/wav2hyp
+https://github.com/jwellik/wav2hyp
 ```
