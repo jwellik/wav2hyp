@@ -1,12 +1,14 @@
 # WAV2HYP: Waveform to Hypocenter Processing Pipeline
 
-A comprehensive seismic processing pipeline that transforms continuous waveform data into earthquake hypocenters through automated phase picking, event association, and probabilistic location.
+A comprehensive seismic processing pipeline that transforms continuous waveform data into earthquake hypocenters through automated phase picking, event association, and probabilistic location. This code is optimized for earthquake locations at volcanoes.
 
 ## Features
 
-- **Automated Phase Picking**: Uses EQTransformer with VolPick model optimized for volcanic seismicity
-- **Event Association**: Groups phase picks into earthquake events using PyOcto
-- **Earthquake Location**: Refines locations using NonLinLoc probabilistic method
+- **Automated Phase Picking**: Uses EQTransformer
+  with [VOLPICK](https://seisbench.readthedocs.io/en/main/pages/benchmark_datasets.html#vcseis) model optimized for
+  volcanic seismicity
+- **Event Association**: Groups phase picks into earthquake events using [PyOcto](https://pyocto.readthedocs.io/en/latest/index.html)
+- **Earthquake Location**: Refines locations using [NonLinLoc](https://alomax.free.fr/nlloc/) probabilistic method
 - **Flexible Configuration**: YAML-based configuration system
 - **Multiple Interfaces**: Both CLI and script interfaces available
 - **Comprehensive Logging**: Configurable logging with file and console output
@@ -46,8 +48,8 @@ Key dependencies include:
 - ObsPy for seismic data handling
 - SeisBench for machine learning phase picking
 - PyOcto for event association
-- NonLinLoc (nllpy) for earthquake location
-- vdapseisutils for VDAP-specific utilities
+- NonLinLoc ([nllpy](https://github.com/jwellik/nllpy)) for earthquake location
+- [vdapseisutils](https://github.com/jwellik/vdapseisutils) for VDAP-specific utilities
 
 ## Usage
 
@@ -55,20 +57,20 @@ Key dependencies include:
 
 ```bash
 # Basic usage
-wav2hyp -c examples/spurr.yaml --t1 "2024/10/14" --t2 "2024/10/15"
+wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25"
 
 # Skip certain processing steps
-wav2hyp -c examples/spurr.yaml --t1 "2024/10/14" --t2 "2024/10/15" --skip-picker
+wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" --skip-picker
 
 # Verbose output
-wav2hyp -c examples/spurr.yaml --t1 "2024/10/14" --t2 "2024/10/15" --verbose
+wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" --verbose
 ```
 
 ### Script Interface
 
 ```bash
 # Equivalent to CLI usage
-python run_wav2hyp.py -c examples/spurr.yaml --t1 "2024/10/14" --t2 "2024/10/15"
+python run_wav2hyp.py -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25"
 ```
 
 ### Python API
@@ -82,8 +84,8 @@ processor = WAV2HYP('examples/config.yaml')
 
 # Run processing
 catalog = processor.run(
-    UTCDateTime('2024/10/14'),
-    UTCDateTime('2024/10/15')
+    UTCDateTime('2004/09/23'),
+    UTCDateTime('2004/09/25')
 )
 
 print(f"Processed {len(catalog)} events")
@@ -91,7 +93,7 @@ print(f"Processed {len(catalog)} events")
 
 ## Configuration
 
-The pipeline uses YAML configuration files. See `examples/config.yaml` for a complete example.
+The pipeline uses YAML configuration files. See `examples/sthelens.yaml` for a complete example.
 
 ### Key Configuration Sections
 
@@ -134,7 +136,7 @@ waveform_client:
 
 ```yaml
 waveform_client:
-  datasource: "iris.edu"       # Server hostname
+  datasource: "https://service.iris.edu"       # Server hostname
   client_type: "fdsn"          # Force FDSN type
   timeout: 60                  # Custom timeout
 ```
@@ -158,7 +160,9 @@ results/
 ├── associations/            # Event association results (HDF5/PyASDF)
 ├── locations/               # Location results (HDF5/PyASDF)
 │   └── nll_<target>/        # NonLinLoc working directories
-└── <target>_inventory.xml   # Station inventory
+└── <target>_picker_summary.txt         # Summary QC file for picker
+└── <target>_associator_summary.txt     # Summary QC file for associator
+└── <target>_locator_summary.txt        # Summary QC file for locator
 ```
 
 ## Command Line Options
@@ -182,7 +186,7 @@ results/
 ## Examples
 
 See the `examples/` directory for:
-- `config.yaml`: Complete configuration example for Mount St. Helens
+- `sthelens.yaml`: Complete configuration example for Mount St. Helens
 - Additional configuration templates for different scenarios
 
 ## Development
@@ -197,8 +201,10 @@ wav2hyp/
 ├── config_loader.py     # Configuration handling
 └── utils/               # Utility modules
     ├── __init__.py
-    ├── geo.py           # Geographic calculations
-    └── sb.py            # SeisBench extensions
+    ├── geo.py              # Geographic calculations
+    └── io.py               # Handles import/export of results
+    └── prep_inventory.py   # Helpes download or create StationXML files
+    └── summary.py          # Writes summary text files for QC
 ```
 
 ### Testing
