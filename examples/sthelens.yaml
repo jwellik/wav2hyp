@@ -10,7 +10,7 @@ target:
 
 # Times of Interest
 # 2004/09/23–2004/09/24  # default REDPy backfill dates
-  
+
 # # Waveform Client
 # waveform_client:
 #   datasource: "IRIS"  # FDSN data center (auto-detected by VClient)
@@ -26,21 +26,24 @@ target:
 waveform_client:
   # datasource: "/path/to/sds/data"  # Path to SDS directory structure (auto-detected by VClient)
   datasource: "/VDAP-NAS/jwellik/DATA/CVO/MSH2004_SDS"  # Path to SDS directory structure (auto-detected by VClient)
-    
+
 # Station Inventory
 inventory:
 #  file: "./examples/sthelens_inventory.xml"
   file: "./examples/sthelens_inventory_redpy.xml"  # Limited to 8 stations used by REDPy defaults
 
 # Output Directory Configuration
+# - All outputs are relative to base_dir
 output:
   base_dir: "./results/sthelens"
   picker_dir: "picks"
-  associator_dir: "associations" 
+  associator_dir: "associations"
   locator_dir: "locations"
   log_dir: "logs"
-  summary_filename: "sthelens_qc_summary.txt"
-  
+  picker_summary: "sthelens_picker_summary.txt"
+  associator_summary: "sthelens_associator_summary.txt"
+  locator_summary: "sthelens_locator_summary.txt"
+
 # Phase Picker Settings (EQTransformer)
 picker:
   model: "volpick"   # Pre-trained model optimized for volcanic seismicity
@@ -48,20 +51,20 @@ picker:
   s_threshold: 0.10  # S-wave detection threshold
   d_threshold: 0.10  # Detection threshold
   use_cuda: true     # Use GPU acceleration if available
-  
+
 # Event Association Settings (PyOcto)
 associator:
   # Search Area
   radius_km: 250.0          # Search radius around target (km)
   depth_limits: [-5, 50]    # Min/max depth (km, negative = above sea level)
-  
+
   # Velocity Model (0D)
   p_velocity: 4.5           # P-wave velocity (km/s)
   s_velocity: 2.5           # S-wave velocity (km/s) 
   tolerance: 2.0            # Pick association tolerance (seconds)
   association_cutoff: 250   # Maximum association distance (km)
   time_before: 300.0        # Time window to look back for picks (seconds)
-  
+
   # Event Quality Criteria
   min_p_picks: 5            # Minimum P picks required for event
   min_s_picks: 1            # Minimum S picks required for event
@@ -70,9 +73,8 @@ associator:
 # Event Location Settings (NonLinLoc)
 locator:
   # NonLinLoc working directory (must contain velocity models and grids)
-  nll_home: "./results/sthelens/locations/nll_sthelens"  # This is the wrong spot right meow
-#  nll_home: "./results/sthelens/locations/nll_sthelens"
-  
+  nll_home: "./results/sthelens/locations/nll_sthelens"
+
   # Configuration name for NLL control files
   config_name: "sthelens"
   

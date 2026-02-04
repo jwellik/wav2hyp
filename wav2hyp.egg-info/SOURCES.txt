@@ -15,3 +15,4 @@ wav2hyp/utils/__init__.py
 wav2hyp/utils/geo.py
 wav2hyp/utils/io.py
 wav2hyp/utils/prep_inventory.py
+wav2hyp/utils/summary.py

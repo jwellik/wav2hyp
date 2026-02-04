@@ -15,6 +15,39 @@ A comprehensive seismic processing pipeline that transforms continuous waveform 
 
 ## Installation
 
+### Install NonLinLoc
+
+Download and compile NonLinLoc:
+```
+rm main.zip
+wget https://github.com/ut-beg-texnet/NonLinLoc/archive/refs/heads/main.zip
+unzip main.zip
+cd NonLinLoc-main/src
+mkdir bin
+sudo apt update
+sudo apt install build-essential
+sudo apt install cmake
+cmake .
+make
+```
+
+Add NonLinLoc to your path:
+```
+cd
+echo 'export PATH="/home/<user>/NonLinLoc-main/src/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Verify NonLinLoc installation:
+
+```
+$ cd
+$ which NLLoc
+```
+
+You should see a path to NonLinLoc.
+
+
 ### Development Installation
 
 We recommend installing wav2hyp with a package manager like [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-pkgs.html).
@@ -187,7 +220,8 @@ results/
 
 See the `examples/` directory for:
 - `sthelens.yaml`: Complete configuration example for Mount St. Helens
-- Additional configuration templates for different scenarios
+- `sthelens_inventory.xml`: StationXML file for Mount St. Helens
+- `sthelens_inventory_redpy.xml`: StationXML file for Mount St. Helens, limited to stations used by [REDPy](https://code.usgs.gov/vsc/seis/tools/REDPy)
 
 ## Development
 
