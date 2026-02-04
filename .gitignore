@@ -1,4 +1,23 @@
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Runtime logs (unless you want example logs)
+logs/
+*.log
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Local Development
 results/sthelens*
+results/*.bak
 *_local/
   __pycache__/
   *.pyc
@@ -6,4 +25,3 @@ results/sthelens*
   .env
   .vscode/
   .DS_Store
-

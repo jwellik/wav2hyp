@@ -1,2 +1,0 @@
-[console_scripts]
-wav2hyp = wav2hyp.cli:cli_main
