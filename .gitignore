@@ -16,6 +16,7 @@ env/
 ENV/
 
 # Local Development
+TODO.py
 results/sthelens*
 results/*.bak
 *_local/
