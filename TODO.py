@@ -1,7 +1,12 @@
 ##################################
 ## PRIORITIES
 # 1. P-S Identical picks
-
+# TODO Install instructions not correct; shore up setup.py and requirements.txt mess
+# TODO Change examples/sthelens.yaml to download from IRIS
+# TODO Compile list of QC plots that are useful to have
+# TODO Pick QC plot: Probability histogram
+# TODO Notebook that produces all of the basic QC plots (map, histograms, etc.)
+# TODO Documentation
 
 ##################################
 ## PROGRAM
@@ -18,7 +23,7 @@
 # TODO Limits of HDF5 file? Is EQT output hitting that?
 
 # Install
-# TODO Install vdapseisutils and nllpy from github
+# [x] Install vdapseisutils and nllpy from github
 # TODO VDAPSEISUTILS Install needs to be cleaned up
 # - currently, there are so many imports, it messes up wav2hyp
 # - - cartopy timezonefinder
@@ -31,8 +36,13 @@
 # TODO Possible for config file to define paths like $BASEDIR/picks ?
 # [x] Look at the timing logs. Something is up (see example at bottom)
 
+# Summary files
+# TODO waveform download summary? somewhere ncha is messed up; it's actually reporting ntraces
+# TODO pick_summary should have value for peak_value for P, S, and D
+
 # IO
 # TODO Soft-coding of storage file names (e.g., eqt-volpick.h5 after method-model instead of hard-coded)
+# TODO How to best store results
 
 ##################################
 ## WAVEFORM COLLECTION
@@ -45,7 +55,8 @@
 # ## --- Summary ---
 # ## Total traces retrieved: 428
 # ## Networks: UW
-
+# TODO Option to save/archive waveforms to SDS upon download
+# TODO Multiple datasources?
 
 ##################################
 ## PICKER
@@ -70,20 +81,22 @@
 # TODO ? Limit number of locations based on quality of associated picks, quality of association?
 
 ## NLLPY
-# TODO run_vel2grid(overwrite=False)  # search for missing stations if overwrite==False
-# TODO run_grid2time(overwrite=False)  # search for missing stations if overwrite==False
-# TODO run_nll(vel2grid=True, grid2time=True, nlloc=True) --> run_nll_all() + run_nlloc()
-# - overwrite, skip
+# TODO Dynamically handle creation of velocity grid and time grids
+# - TODO run_vel2grid(overwrite=False)  # search for missing stations if overwrite==False
+# - TODO run_grid2time(overwrite=False)  # search for missing stations if overwrite==False
+# - TODO run_nll(vel2grid=True, grid2time=True, nlloc=True) --> run_nll_all() + run_nlloc()
+#   - overwrite, skip
 
 
 ##################################
 ## PLOTS
-# TODO Plots
+# Standalone plots
 # - [x] Helicorder
 # - [x] Pensive (Spectrograms)
 # - [x] Map
 # - TODO Detections, Associations, Locations TimeSeries
 # - [x] Histogram of RMS, azgap
+# - TODO Histogram of detection count by probability (all vs. associated, vs. located)
 
 
 """

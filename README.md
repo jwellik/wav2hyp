@@ -89,21 +89,27 @@ Key dependencies include:
 ### Command Line Interface
 
 ```bash
-# Basic usage
-wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25"
+# Full pipeline (pick, associate, locate)
+wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" --all
 
-# Skip certain processing steps
-wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" --skip-picker
+# Run only association and location (use existing picks)
+wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" -a -l
+
+# Overwrite existing output for the time range
+wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" -p -a -l -o
+
+# Show config summary only (no processing)
+wav2hyp -c examples/sthelens.yaml
 
 # Verbose output
-wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" --verbose
+wav2hyp -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" --all --verbose
 ```
 
 ### Script Interface
 
 ```bash
 # Equivalent to CLI usage
-python run_wav2hyp.py -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25"
+python run_wav2hyp.py -c examples/sthelens.yaml --t1 "2004/09/23" --t2 "2004/09/25" --all
 ```
 
 ### Python API
@@ -115,10 +121,13 @@ from obspy import UTCDateTime
 # Initialize processor with configuration
 processor = WAV2HYP('examples/config.yaml')
 
-# Run processing
+# Run processing (specify which steps to run)
 catalog = processor.run(
     UTCDateTime('2004/09/23'),
-    UTCDateTime('2004/09/25')
+    UTCDateTime('2004/09/25'),
+    run_picker=True,
+    run_associator=True,
+    run_locator=True
 )
 
 print(f"Processed {len(catalog)} events")
@@ -201,14 +210,18 @@ results/
 ## Command Line Options
 
 - `-c, --config`: Path to YAML configuration file (required)
-- `--t1`: Start time (YYYY/MM/DD or YYYY/MM/DD HH:MM:SS) (required)
-- `--t2`: End time (YYYY/MM/DD or YYYY/MM/DD HH:MM:SS) (required)
-- `--skip-picker`: Skip phase picking step
-- `--skip-associator`: Skip event association step  
-- `--skip-locator`: Skip earthquake location step
+- `--t1`: Start time (YYYY/MM/DD or YYYY/MM/DD HH:MM:SS); required when running -p, -a, or -l
+- `--t2`: End time (YYYY/MM/DD or YYYY/MM/DD HH:MM:SS); required when running -p, -a, or -l
+- `-p, --pick`: Run phase picking step
+- `-a, --associate`: Run event association step
+- `-l, --locate`: Run earthquake location step
+- `-A, --all`: Run full pipeline (same as -p -a -l)
+- `-o, --overwrite`: Overwrite existing output for the time range (default is to skip existing)
 - `--verbose, -v`: Enable verbose output
 - `--quiet, -q`: Suppress output except errors
 - `--version`: Show version information
+
+If none of `-p`, `-a`, `-l`, or `--all` is given, the program prints the configuration summary and a note that at least one step option is required to run processing.
 
 ## Processing Workflow
 

@@ -6,10 +6,10 @@ This script provides a direct interface to run the WAV2HYP processing pipeline.
 It serves as a thin wrapper around the wav2hyp package CLI functionality.
 
 Usage:
-    python run_wav2hyp.py -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15"
-    
+    python run_wav2hyp.py -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15" --all
+
 This is equivalent to:
-    wav2hyp -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15"
+    wav2hyp -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15" --all
 """
 
 import sys

@@ -11,9 +11,9 @@ def main():
     catalog = processor.run(
         UTCDateTime('2004/10/05'),
         UTCDateTime('2004/10/06'),
-        skip_picker=False,
-        skip_associator=False,
-        skip_locator=False,
+        run_picker=True,
+        run_associator=True,
+        run_locator=True,
     )
 
     print(f"Processed {len(catalog)} events")

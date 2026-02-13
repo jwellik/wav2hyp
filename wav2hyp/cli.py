@@ -22,44 +22,54 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  wav2hyp -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15"
-  wav2hyp -c examples/config.yaml --t1 "2024/10/14 00:00:00" --t2 "2024/10/15 00:00:00" --skip-picker
-  python run_wav2hyp.py -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15"
+  wav2hyp -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15" --all
+  wav2hyp -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15" -p -a -l
+  wav2hyp -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15" -a -l
+  wav2hyp -c config.yaml --t1 "2024/10/14" --t2 "2024/10/15" -p -a -l -o
+  wav2hyp -c config.yaml
         """
     )
     
     # Required arguments
     parser.add_argument(
-        "-c", "--config", 
-        required=True, 
+        "-c", "--config",
+        required=True,
         help="Path to YAML configuration file"
     )
     parser.add_argument(
-        "--t1", 
-        required=True, 
-        help="Start time (YYYY/MM/DD or YYYY/MM/DD HH:MM:SS)"
+        "--t1",
+        help="Start time (YYYY/MM/DD or YYYY/MM/DD HH:MM:SS); required when running -p, -a, or -l"
     )
     parser.add_argument(
-        "--t2", 
-        required=True, 
-        help="End time (YYYY/MM/DD or YYYY/MM/DD HH:MM:SS)"
+        "--t2",
+        help="End time (YYYY/MM/DD or YYYY/MM/DD HH:MM:SS); required when running -p, -a, or -l"
     )
-    
-    # Optional processing control
+
+    # Processing steps: at least one of -p -a -l or --all required to run
     parser.add_argument(
-        "--skip-picker", 
-        action="store_true", 
-        help="Skip phase picking step (use existing picks)"
-    )
-    parser.add_argument(
-        "--skip-associator", 
-        action="store_true", 
-        help="Skip event association step (use existing associations)"
+        "-p", "--pick",
+        action="store_true",
+        help="Run phase picking step"
     )
     parser.add_argument(
-        "--skip-locator", 
-        action="store_true", 
-        help="Skip event location step (use association results only)"
+        "-a", "--associate",
+        action="store_true",
+        help="Run event association step"
+    )
+    parser.add_argument(
+        "-l", "--locate",
+        action="store_true",
+        help="Run earthquake location step"
+    )
+    parser.add_argument(
+        "-A", "--all",
+        action="store_true",
+        help="Run full pipeline (pick, associate, locate); same as -p -a -l"
+    )
+    parser.add_argument(
+        "-o", "--overwrite",
+        action="store_true",
+        help="Overwrite existing output for the time range; default is to skip existing"
     )
     
     # Output options
@@ -84,15 +94,21 @@ Examples:
     return parser.parse_args()
 
 
-def validate_arguments(args):
-    """Validate command-line arguments."""
+def validate_arguments(args, require_times=False):
+    """Validate command-line arguments. If require_times is True, --t1 and --t2 are required."""
     # Check config file exists
     config_path = Path(args.config)
     if not config_path.exists():
         print(f"Error: Configuration file not found: {config_path}")
         sys.exit(1)
-    
-    # Validate time arguments
+
+    if not require_times:
+        return None, None
+
+    if not args.t1 or not args.t2:
+        print("Error: --t1 and --t2 are required when running processing steps (-p, -a, -l, or --all)")
+        sys.exit(1)
+
     try:
         t1 = UTCDateTime(args.t1)
         t2 = UTCDateTime(args.t2)
@@ -100,16 +116,16 @@ def validate_arguments(args):
         print(f"Error parsing time arguments: {e}")
         print("Time format should be YYYY/MM/DD or YYYY/MM/DD HH:MM:SS")
         sys.exit(1)
-    
+
     if t1 >= t2:
         print("Error: Start time must be before end time")
         sys.exit(1)
-    
+
     # Check for conflicting verbosity options
     if args.verbose and args.quiet:
         print("Error: Cannot specify both --verbose and --quiet")
         sys.exit(1)
-    
+
     return t1, t2
 
 
@@ -171,70 +187,87 @@ def generate_summary_command():
 def cli_main():
     """Main entry point for command-line interface."""
     try:
-        # Parse and validate arguments
         args = parse_arguments()
-        t1, t2 = validate_arguments(args)
-        
+
+        run_picker = args.pick or args.all
+        run_associator = args.associate or args.all
+        run_locator = args.locate or args.all
+        run_any = run_picker or run_associator or run_locator
+
+        if not run_any:
+            # No steps requested: validate config only, print summary, and note about -p -a -l
+            validate_arguments(args, require_times=False)
+            from .config_loader import load_config, validate_config, print_config_summary
+            config = load_config(args.config)
+            config = validate_config(config)
+            print_config_summary(config)
+            print("\nNo processing steps specified. To run the pipeline, include one or more of:")
+            print("  -p, --pick       Run phase picking")
+            print("  -a, --associate Run event association")
+            print("  -l, --locate    Run earthquake location")
+            print("  -A, --all       Run full pipeline (same as -p -a -l)")
+            return None
+
+        t1, t2 = validate_arguments(args, require_times=True)
+
         # Setup logging level based on verbosity
         import logging
         if args.quiet:
             logging.getLogger('wav2hyp').setLevel(logging.ERROR)
         elif args.verbose:
             logging.getLogger('wav2hyp').setLevel(logging.DEBUG)
-        
-        # Initialize WAV2HYP processor
+
         print(f"Initializing WAV2HYP with config: {args.config}")
         processor = WAV2HYP(config_path=args.config)
-        
-        # Run processing
+
         print(f"Processing from {t1} to {t2}")
         if not args.quiet:
-            skip_info = []
-            if args.skip_picker:
-                skip_info.append("picker")
-            if args.skip_associator:
-                skip_info.append("associator")
-            if args.skip_locator:
-                skip_info.append("locator")
-            
-            if skip_info:
-                print(f"Skipping: {', '.join(skip_info)}")
-            else:
-                print("Running complete pipeline")
-        
+            steps = []
+            if run_picker:
+                steps.append("picker")
+            if run_associator:
+                steps.append("associator")
+            if run_locator:
+                steps.append("locator")
+            print(f"Running: {', '.join(steps)}")
+            if not args.overwrite:
+                print("Existing output for the time range will be skipped (use -o to overwrite)")
+
         catalog = processor.run(
             t1, t2,
-            skip_picker=args.skip_picker,
-            skip_associator=args.skip_associator,
-            skip_locator=args.skip_locator
+            run_picker=run_picker,
+            run_associator=run_associator,
+            run_locator=run_locator,
+            overwrite=args.overwrite
         )
-        
-        # Report results
+
         if not args.quiet:
             print(f"\nProcessing completed successfully!")
             print(f"Final catalog contains {len(catalog)} events")
-            
+
             if len(catalog) > 0:
                 print("\nEvent summary:")
-                for i, event in enumerate(catalog[:5]):  # Show first 5 events
+                for i, event in enumerate(catalog[:5]):
                     origin = event.preferred_origin() or event.origins[0]
                     print(f"  Event {i+1}: {origin.time} - "
                           f"Lat: {origin.latitude:.3f}, Lon: {origin.longitude:.3f}, "
                           f"Depth: {origin.depth/1000:.1f} km")
-                
                 if len(catalog) > 5:
                     print(f"  ... and {len(catalog)-5} more events")
-        
+
         return catalog
-        
+
     except KeyboardInterrupt:
         print("\nProcessing interrupted by user")
         sys.exit(1)
     except Exception as e:
         print(f"Error during processing: {e}")
-        if args.verbose:
-            import traceback
-            traceback.print_exc()
+        try:
+            if args.verbose:
+                import traceback
+                traceback.print_exc()
+        except NameError:
+            pass
         sys.exit(1)
 
 

@@ -171,25 +171,27 @@ class WAV2HYP:
         else:
             raise ValueError(f"Unknown step: {step}")
 
-    def run(self, start_time, end_time, tproc='1d', skip_picker=False, skip_associator=False, skip_locator=False):
+    def run(self, start_time, end_time, tproc='1d', run_picker=False, run_associator=False, run_locator=False, overwrite=False):
         """
         Run the complete WAV2HYP processing pipeline.
-        
+
         Parameters
         ----------
         start_time : obspy.UTCDateTime or str
             Start time for processing.
-        end_time : obspy.UTCDateTime or str  
+        end_time : obspy.UTCDateTime or str
             End time for processing.
         tproc : str, default '1d'
             Time processing chunk size (e.g., '1d', '12h', '30m').
-        skip_picker : bool, default False
-            Skip phase picking step.
-        skip_associator : bool, default False
-            Skip event association step.
-        skip_locator : bool, default False
-            Skip earthquake location step.
-            
+        run_picker : bool, default False
+            Run phase picking step.
+        run_associator : bool, default False
+            Run event association step.
+        run_locator : bool, default False
+            Run earthquake location step.
+        overwrite : bool, default False
+            Overwrite existing output for the time range; default is to skip existing.
+
         Returns
         -------
         vdapseisutils.VCatalog
@@ -244,7 +246,7 @@ class WAV2HYP:
         for i, (chunk_start_time, chunk_end_time) in enumerate(time_chunks, 1):
             self.logger.info(f"Processing chunk {i}/{len(time_chunks)}: {chunk_start_time} to {chunk_end_time}")
             
-            chunk_catalog = self._process_timespan(chunk_start_time, chunk_end_time, inv, skip_picker, skip_associator, skip_locator)
+            chunk_catalog = self._process_timespan(chunk_start_time, chunk_end_time, inv, run_picker, run_associator, run_locator, overwrite)
             
             # Combine catalogs
             if chunk_catalog is not None and len(chunk_catalog) > 0:
@@ -256,52 +258,50 @@ class WAV2HYP:
         self.logger.info(f"Total execution time: {run_execution_time:.2f} seconds ({run_execution_time/60:.2f} minutes)")
         return final_catalog
     
-    def _process_timespan(self, start_time, end_time, inventory, skip_picker, skip_associator, skip_locator):
+    def _process_timespan(self, start_time, end_time, inventory, run_picker, run_associator, run_locator, overwrite):
         """Process a time span through the complete pipeline."""
-        
+
         # Start timing
         timespan_start_time = time.perf_counter()
-        
-        # self.logger.info(f"Processing timespan: {start_time} to {end_time}")
-        
+
         # Get output paths
         picker_output = self._get_output_path("picker")
-        associator_output = self._get_output_path("associator") 
+        associator_output = self._get_output_path("associator")
         locator_output = self._get_output_path("locator")
 
         # Step 1: Phase Picking
-        if skip_picker:
-            self.logger.info("Skipping picker step as requested...")
+        if not run_picker:
+            self.logger.info("Reading existing picks (picker not requested)...")
             eqt_output = EQTOutput(picker_output)
             picks, detections, metadata = eqt_output.read(t1=start_time, t2=end_time)
         else:
-            picks = self._run_picker(start_time, end_time, picker_output)
+            picks = self._run_picker(start_time, end_time, picker_output, overwrite)
 
         # Step 2: Event Association
-        if skip_associator:
-            self.logger.info("Skipping associator step as requested...")
+        if not run_associator:
+            self.logger.info("Reading existing associations (associator not requested)...")
             pyocto_output = PyOctoOutput(associator_output)
             catalog_assoc, _, _, _ = pyocto_output.read(t1=start_time, t2=end_time)
         else:
-            catalog_assoc = self._run_associator(picks, inventory, associator_output, start_time, end_time)
+            catalog_assoc = self._run_associator(picks, inventory, associator_output, start_time, end_time, overwrite)
 
-        # Step 3: Event Location  
-        if skip_locator:
-            self.logger.info("Skipping locator step as requested...")
+        # Step 3: Event Location
+        if not run_locator:
+            self.logger.info("Reading existing locations (locator not requested)...")
             nll_output = NLLOutput(locator_output)
             catalog, _ = nll_output.read(t1=start_time, t2=end_time)
             if catalog is None:
                 self.logger.warning("No existing locator results found, using associator catalog")
                 catalog = catalog_assoc
         else:
-            catalog = self._run_locator(catalog_assoc, inventory, locator_output, start_time, end_time)
+            catalog = self._run_locator(catalog_assoc, inventory, locator_output, start_time, end_time, overwrite)
 
         # Calculate and log timespan execution time
         timespan_execution_time = time.perf_counter() - timespan_start_time
         self.logger.info(f"Timespan completed. Execution time: {timespan_execution_time:.2f} seconds ({timespan_execution_time/60:.2f} minutes)")
         return catalog
 
-    def _run_picker(self, start_time, end_time, output_path):
+    def _run_picker(self, start_time, end_time, output_path, overwrite=False):
         """Run phase picking with EQTransformer."""
         method_start = time.perf_counter()
         
@@ -370,14 +370,18 @@ class WAV2HYP:
             'D_threshold': self.d_threshold
         }
 
-        # TODO: Add this back in - but for now, I haven't encountered a problem, so don't create one
-        # # Write to file
-        # if len(picks) == 0 and len(detections) == 0:
-        #     self.logger.info("No picks or detections to write - skipping file output")
-        #     return PickListX()
-        
         eqt_output = EQTOutput(output_path, time_range=(start_time, end_time))
-        eqt_output.write(picks, detections, metadata)
+        if not overwrite:
+            try:
+                existing_picks, existing_det, _ = eqt_output.read(t1=start_time, t2=end_time)
+                if (existing_picks is not None and len(existing_picks) > 0) or (existing_det is not None and len(existing_det) > 0):
+                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
+                else:
+                    eqt_output.write(picks, detections, metadata)
+            except (OSError, FileNotFoundError, KeyError):
+                eqt_output.write(picks, detections, metadata)
+        else:
+            eqt_output.write(picks, detections, metadata)
         
         # Update picker summary if enabled
         if self.picker_summary_exporter:
@@ -401,7 +405,7 @@ class WAV2HYP:
         
         return picks
     
-    def _run_associator(self, picks, inventory, output_path, start_time=None, end_time=None):
+    def _run_associator(self, picks, inventory, output_path, start_time=None, end_time=None, overwrite=False):
         """Run event association with PyOcto."""
         method_start = time.perf_counter()
 
@@ -484,11 +488,11 @@ class WAV2HYP:
         if events_empty and assignments_empty:
             self.logger.info("No events or assignments to write - skipping file output")
             return VCatalog()
-        
+
         # If we need to write data, ensure proper structure for empty DataFrames
         if events_empty:
             events_df = pd.DataFrame(columns=['time', 'x', 'y', 'z', 'latitude', 'longitude', 'depth', 'residual_rms', 'n_picks', 'n_p_picks', 'n_s_picks'])
-        
+
         if assignments_empty:
             assignments_df = pd.DataFrame({
                 'event_idx': pd.Series(dtype='int64'),
@@ -498,12 +502,23 @@ class WAV2HYP:
                 'residual': pd.Series(dtype='float64'),
                 'weight': pd.Series(dtype='float64')
             })
-        
-        # Write PyOcto results to file
-        self.logger.info(f"Writing associations to {output_path}")
+
         time_range = (start_time, end_time) if start_time and end_time else None
         pyocto_output = PyOctoOutput(output_path, time_range=time_range)
-        pyocto_output.write(events_df, assignments_df, metadata)
+        if not overwrite and start_time and end_time:
+            try:
+                catalog_existing, _, _, _ = pyocto_output.read(t1=start_time, t2=end_time)
+                if catalog_existing is not None and len(catalog_existing) > 0:
+                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
+                else:
+                    self.logger.info(f"Writing associations to {output_path}")
+                    pyocto_output.write(events_df, assignments_df, metadata)
+            except (OSError, FileNotFoundError, KeyError):
+                self.logger.info(f"Writing associations to {output_path}")
+                pyocto_output.write(events_df, assignments_df, metadata)
+        else:
+            self.logger.info(f"Writing associations to {output_path}")
+            pyocto_output.write(events_df, assignments_df, metadata)
         
         # Create ObsPy Catalog object
         catalog = VCatalog.from_pyocto(events_df, assignments_df)
@@ -527,7 +542,7 @@ class WAV2HYP:
         
         return catalog
     
-    def _run_locator(self, catalog_in, inventory, output_path, start_time=None, end_time=None):
+    def _run_locator(self, catalog_in, inventory, output_path, start_time=None, end_time=None, overwrite=False):
         """Run earthquake location with NonLinLoc."""
         method_start = time.perf_counter()
         
@@ -609,12 +624,23 @@ class WAV2HYP:
         if len(catalog_out) == 0:
             self.logger.info("No locations to write - skipping file output")
             return VCatalog()
-        
-        # Store results using NLLOutput
-        self.logger.info(f"Writing locations to {output_path}")
+
         time_range = (start_time, end_time) if start_time and end_time else None
         nll_output = NLLOutput(output_path, time_range=time_range)
-        nll_output.write(catalog_out, metadata)
+        if not overwrite and start_time and end_time:
+            try:
+                catalog_existing, _ = nll_output.read(t1=start_time, t2=end_time)
+                if catalog_existing is not None and len(catalog_existing) > 0:
+                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
+                else:
+                    self.logger.info(f"Writing locations to {output_path}")
+                    nll_output.write(catalog_out, metadata)
+            except (OSError, FileNotFoundError, KeyError):
+                self.logger.info(f"Writing locations to {output_path}")
+                nll_output.write(catalog_out, metadata)
+        else:
+            self.logger.info(f"Writing locations to {output_path}")
+            nll_output.write(catalog_out, metadata)
         
         # Update locator summary if enabled
         if self.locator_summary_exporter and start_time:
@@ -634,10 +660,10 @@ class WAV2HYP:
         return catalog_out
     
 
-def main(start_time, end_time, config_path="config.yaml", tproc='1d', skip_picker=False, skip_associator=False, skip_locator=False):
+def main(start_time, end_time, config_path="config.yaml", tproc='1d', run_picker=False, run_associator=False, run_locator=False, overwrite=False):
     """
-    Main processing function for backward compatibility.
-    
+    Main processing function (e.g. for programmatic use).
+
     Parameters
     ----------
     start_time : obspy.UTCDateTime or str
@@ -648,20 +674,22 @@ def main(start_time, end_time, config_path="config.yaml", tproc='1d', skip_picke
         Path to configuration file.
     tproc : str, default '1d'
         Time processing chunk size (e.g., '1d', '12h', '30m').
-    skip_picker : bool, default False
-        Skip phase picking step.
-    skip_associator : bool, default False
-        Skip event association step.
-    skip_locator : bool, default False
-        Skip earthquake location step.
-        
+    run_picker : bool, default False
+        Run phase picking step.
+    run_associator : bool, default False
+        Run event association step.
+    run_locator : bool, default False
+        Run earthquake location step.
+    overwrite : bool, default False
+        Overwrite existing output for the time range.
+
     Returns
     -------
     vdapseisutils.VCatalog
         Final earthquake catalog.
     """
     processor = WAV2HYP(config_path=config_path)
-    return processor.run(start_time, end_time, tproc, skip_picker, skip_associator, skip_locator)
+    return processor.run(start_time, end_time, tproc, run_picker, run_associator, run_locator, overwrite)
 
 
 def parse_time_string(time_str):
