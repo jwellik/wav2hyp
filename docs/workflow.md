@@ -1,0 +1,90 @@
+# Program Workflow
+
+The WAV2HYP pipeline runs in three steps: **phase picking**, **event association**, and **earthquake location**. Each step reads from config and (when applicable) from the previous step’s output, and writes to HDF5/ASDF files under `results/<target>/`. The path placeholder `<target>` comes from your config (e.g. the locator `config_name` or output base directory name).
+
+When you omit a step (e.g. you run only `-a -l` without `-p`), the pipeline reads existing data from the corresponding HDF5/ASDF file for that step instead of recomputing it.
+
+---
+
+## Step 1 – Phase picking
+
+**Inputs**
+
+- Config: inventory path, waveform client (datasource, optional client_type), picker model, P/S/D thresholds
+- Time range: `(t1, t2)` for the window to process
+
+**Data in**
+
+- Continuous waveforms from **VClient** (FDSN, SDS, Earthworm, or SeedLink)
+- Station **inventory** (StationXML) from config
+
+**Outputs**
+
+- **File:** `results/<target>/picks/eqt-volpick.h5`  
+  Contains: `picks`, `detections`, `summary`, `pick_peak_histogram` (see [Data structures](data-structures.md)).
+- **In-memory:** `PickListX` (picks), `Stream` (optional), `DetectionListX` (detections)
+
+---
+
+## Step 2 – Event association
+
+**Inputs**
+
+- **Picks:** from the picker step or read from `results/<target>/picks/eqt-volpick.h5` when the picker was not run
+- Station **inventory**
+- Config: associator section (velocity, tolerance, depth limits, min P/S picks, etc.)
+
+**Outputs**
+
+- **File:** `results/<target>/associations/pyocto.h5`  
+  Contains: `events`, `assignments`, `summary` (see [Data structures](data-structures.md)).
+- **Side effect:** Updates the `is_associated` column in `eqt-volpick.h5` for the same time range
+- **In-memory:** `VCatalog` (events), assignments DataFrame
+
+---
+
+## Step 3 – Location
+
+**Inputs**
+
+- **Catalog** from the associator step (events + assignments)
+- Station **inventory**
+- Config: locator section (`nll_home`, `config_name`, station_format, `run_vel2grid` / `run_grid2time`)
+
+**Data in**
+
+- NLL observation files under `nll_home`, NLL control file, and grid/time runs (vel2grid, grid2time, NLLoc)
+
+**Outputs**
+
+- **File:** `results/<target>/locations/nll.h5`  
+  ASDF with QuakeML events, `metadata` group, and `summary` table. Fallback: `nll.xml` and `nll_metadata.json`.
+- **Directory:** `results/<target>/locations/nll_<config_name>/loc-YYYY-MM-DD/`  
+  NonLinLoc working files and `.hyp` results.
+- **In-memory:** `VCatalog` of located events
+
+---
+
+## Summary diagram
+
+```
+Config + time range (t1, t2)
+         │
+         ▼
+┌─────────────────────┐     results/<target>/picks/eqt-volpick.h5
+│  1. Phase picking    │ ─────────────────────────────────────────►
+│  (EQTransformer)     │     PickListX, DetectionListX
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐     results/<target>/associations/pyocto.h5
+│  2. Event association│ ─────────────────────────────────────────►
+│  (PyOcto)            │     + updates is_associated in picks HDF5
+└──────────┬──────────┘     VCatalog, assignments_df
+           │
+           ▼
+┌─────────────────────┐     results/<target>/locations/nll.h5
+│  3. Location         │ ─────────────────────────────────────────►
+│  (NonLinLoc)         │     + nll_<config_name>/loc-YYYY-MM-DD/
+└─────────────────────┘     VCatalog (located events)
+```

@@ -179,6 +179,6 @@ xyzservices==2025.4.0
 zipp==3.23.0
 zstandard==0.24.0
 
-# Github packages
-git+https://github.com/jwellik/vdapseisutils.git
-git+https://github.com/jwellik/nllpy.git
+# Github packages (PEP 508 format for install_requires)
+vdapseisutils @ git+https://github.com/jwellik/vdapseisutils.git
+nllpy @ git+https://github.com/jwellik/nllpy.git
