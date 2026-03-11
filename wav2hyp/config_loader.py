@@ -72,6 +72,8 @@ def validate_config(config):
         config['output']['locator_summary'] = None  # None = disabled, string = custom filename
     if 'config_snapshot_dir' not in config['output']:
         config['output']['config_snapshot_dir'] = None  # None/false = disabled, non-empty string = subdir for per-day config snapshots
+    if 'station_summary' not in config['output']:
+        config['output']['station_summary'] = None  # None = disabled, string = filename e.g. station_summary.txt
     
     # Validate waveform_client configuration
     waveform_config = config['waveform_client']
@@ -154,6 +156,7 @@ def get_global_variables(config):
         'picker_summary': config['output'].get('picker_summary', None),
         'associator_summary': config['output'].get('associator_summary', None),
         'locator_summary': config['output'].get('locator_summary', None),
+        'station_summary': config['output'].get('station_summary', None),
     }
 
 

@@ -16,6 +16,8 @@ import pandas as pd
 
 from obspy import UTCDateTime
 
+from .io import PickListX, DetectionListX
+
 
 def write_summary_txt_from_hdf5(hdf5_path: str, summary_txt_path: str, step: str) -> None:
     """
@@ -54,6 +56,83 @@ def write_summary_txt_from_hdf5(hdf5_path: str, summary_txt_path: str, step: str
         raise ValueError(f"Unknown step: {step}")
     cols = [c for c in cols if c in df.columns]
     df[cols].to_csv(out, index=False)
+
+
+def append_station_summary_rows(
+    base_output_dir: str,
+    summary_filename: str,
+    date_str: str,
+    stream,
+    picks,
+    detections,
+    assignments_df: Optional[pd.DataFrame],
+) -> None:
+    """
+    Append one row per (date, channel_id) to station_summary.txt.
+    Columns: date, channel_id, nsamples, ncha, np, ns, nd, nassign, nassoc, nevents.
+    Requires stream (Obspy Stream) for nsamples; picks/detections for np, ns, nd;
+    assignments_df for nassign, nassoc, nevents per station (mapped to channel via trace_id).
+    """
+    if stream is None or len(stream) == 0:
+        return
+    path = Path(base_output_dir) / summary_filename
+    path.parent.mkdir(parents=True, exist_ok=True)
+    header = ['date', 'channel_id', 'nsamples', 'ncha', 'np', 'ns', 'nd', 'nassign', 'nassoc', 'nevents']
+    write_header = not path.exists()
+    channel_ids = sorted(set(tr.id for tr in stream))
+    # Per-channel: nsamples
+    nsamples_per_ch = {ch_id: sum(len(tr.data) for tr in stream if tr.id == ch_id) for ch_id in channel_ids}
+    # Per-channel: np, ns, nd from picks and detections
+    np_per_ch = {}
+    ns_per_ch = {}
+    nd_per_ch = {}
+    if picks is not None and len(picks) > 0:
+        try:
+            pick_df = PickListX(picks).to_dataframe()
+            for trace_id in pick_df['trace_id'].unique():
+                sub = pick_df[pick_df['trace_id'] == trace_id]
+                np_per_ch[trace_id] = int((sub['phase'] == 'P').sum())
+                ns_per_ch[trace_id] = int((sub['phase'] == 'S').sum())
+        except Exception:
+            pass
+    if detections is not None and len(detections) > 0:
+        try:
+            det_df = DetectionListX(detections).to_dataframe()
+            for trace_id in det_df['trace_id'].unique():
+                nd_per_ch[trace_id] = int(len(det_df[det_df['trace_id'] == trace_id]))
+        except Exception:
+            pass
+    # Per-station: nassign, nevents from assignments_df (station_id, event_idx)
+    nassign_per_sta = {}
+    nevents_per_sta = {}
+    if assignments_df is not None and len(assignments_df) > 0 and 'station_id' in assignments_df.columns and 'event_idx' in assignments_df.columns:
+        for sta in assignments_df['station_id'].unique():
+            sub = assignments_df[assignments_df['station_id'] == sta]
+            nassign_per_sta[str(sta)] = int(len(sub))
+            nevents_per_sta[str(sta)] = int(sub['event_idx'].nunique())
+    # Build rows: one per channel_id
+    rows = []
+    for ch_id in channel_ids:
+        sta = '.'.join(ch_id.split('.')[:2]) if len(ch_id.split('.')) >= 2 else ch_id
+        rows.append({
+            'date': date_str,
+            'channel_id': ch_id,
+            'nsamples': nsamples_per_ch.get(ch_id, 0),
+            'ncha': 1,
+            'np': np_per_ch.get(ch_id, 0),
+            'ns': ns_per_ch.get(ch_id, 0),
+            'nd': nd_per_ch.get(ch_id, 0),
+            'nassign': nassign_per_sta.get(sta, 0),
+            'nassoc': nassign_per_sta.get(sta, 0),
+            'nevents': nevents_per_sta.get(sta, 0),
+        })
+    df = pd.DataFrame(rows)
+    with open(path, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=header)
+        if write_header:
+            writer.writeheader()
+        for _, row in df.iterrows():
+            writer.writerow(row)
 
 
 class SummaryExporter:

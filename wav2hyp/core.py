@@ -295,20 +295,23 @@ class WAV2HYP:
         locator_output = self._get_output_path("locator")
 
         # Step 1: Phase Picking
+        stream = None
+        detections = None
         if not run_picker:
             self.logger.info("Reading existing picks (picker not requested)...")
             eqt_output = EQTOutput(picker_output)
             picks, detections, metadata = eqt_output.read(t1=start_time, t2=end_time)
         else:
-            picks = self._run_picker(start_time, end_time, picker_output, overwrite)
+            picks, stream, detections = self._run_picker(start_time, end_time, picker_output, overwrite)
 
         # Step 2: Event Association
+        assignments_df = None
         if not run_associator:
             self.logger.info("Reading existing associations (associator not requested)...")
             pyocto_output = PyOctoOutput(associator_output)
-            catalog_assoc, _, _, _ = pyocto_output.read(t1=start_time, t2=end_time)
+            catalog_assoc, _, assignments_df, _ = pyocto_output.read(t1=start_time, t2=end_time)
         else:
-            catalog_assoc = self._run_associator(picks, inventory, associator_output, start_time, end_time, overwrite)
+            catalog_assoc, assignments_df = self._run_associator(picks, inventory, associator_output, start_time, end_time, overwrite)
 
         # Step 3: Event Location
         if not run_locator:
@@ -321,9 +324,21 @@ class WAV2HYP:
         else:
             catalog = self._run_locator(catalog_assoc, inventory, locator_output, start_time, end_time, overwrite)
 
+        if self.station_summary and stream is not None:
+            from .utils.summary import append_station_summary_rows
+            append_station_summary_rows(
+                self.BASE_OUTPUT_DIR,
+                self.station_summary,
+                start_time.strftime('%Y/%m/%d'),
+                stream,
+                picks,
+                detections,
+                assignments_df,
+            )
+
         # Calculate and log timespan execution time
         timespan_execution_time = time.perf_counter() - timespan_start_time
-        self.logger.info(f"Timespan completed. Execution time: {timespan_execution_time:.2f} seconds ({timespan_execution_time/60:.2f} minutes)")
+        self.logger.info(f"Timespan completed. Execution time: {timespan_execution_time:.2f} seconds ({timespan_execution_time/60:2.1f} minutes)")
         return catalog
 
     def _run_picker(self, start_time, end_time, output_path, overwrite=False):
@@ -436,7 +451,7 @@ class WAV2HYP:
         method_time = time.perf_counter() - method_start
         self.logger.info(f"Picker completed: {method_time:.2f}s ({method_time/60:2.1f} minutes)")
         
-        return picks
+        return picks, stream, detections
     
     def _run_associator(self, picks, inventory, output_path, start_time=None, end_time=None, overwrite=False):
         """Run event association with PyOcto."""
@@ -449,7 +464,7 @@ class WAV2HYP:
         # Check if there are picks to associate
         if picks is None or len(picks) == 0:
             self.logger.info("No picks available for association - skipping association processing")
-            return VCatalog()
+            return VCatalog(), None
         
         assoc_config = self.config['associator']
         
@@ -520,7 +535,7 @@ class WAV2HYP:
         
         if events_empty and assignments_empty:
             self.logger.info("No events or assignments to write - skipping file output")
-            return VCatalog()
+            return VCatalog(), (assignments_df if not assignments_empty else pd.DataFrame())
 
         # If we need to write data, ensure proper structure for empty DataFrames
         if events_empty:
@@ -581,7 +596,7 @@ class WAV2HYP:
         events_count = len(events_df) if events_df is not None else 0
         self.logger.info(f"Associator completed: {method_time:.2f}s ({method_time/60:2.1f} minutes)")
         
-        return catalog
+        return catalog, assignments_df
     
     def _run_locator(self, catalog_in, inventory, output_path, start_time=None, end_time=None, overwrite=False):
         """Run earthquake location with NonLinLoc."""

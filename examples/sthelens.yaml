@@ -43,7 +43,11 @@ output:
   picker_summary: "sthelens_picker_summary.txt"
   associator_summary: "sthelens_associator_summary.txt"
   locator_summary: "sthelens_locator_summary.txt"
-  
+  # Per-channel summary: set to filename (e.g. "station_summary.txt") to enable; null or omit to disable
+  station_summary: "station_summary.txt"
+  # Per-day config snapshot: set to a subdir name (e.g. "config_snapshots") to enable; false or omit to disable
+  config_snapshot_dir: "config_snapshots"
+
 # Phase Picker Settings (EQTransformer)
 picker:
   model: "volpick"   # Pre-trained model optimized for volcanic seismicity
