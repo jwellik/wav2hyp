@@ -8,6 +8,7 @@ waveform to hypocenter processing workflow.
 import os
 import time
 import logging
+import yaml
 from datetime import timedelta, datetime
 from pathlib import Path
 
@@ -171,6 +172,26 @@ class WAV2HYP:
         else:
             raise ValueError(f"Unknown step: {step}")
 
+    def _snapshot_config_if_enabled(self, date_str: str):
+        """
+        Write loaded config to output_base_dir/config_snapshot_dir/YYYY-MM-DD_configname.yaml
+        if output.config_snapshot_dir is set (non-empty string).
+        """
+        snapshot_dir = self.config.get('output', {}).get('config_snapshot_dir')
+        if not snapshot_dir or not isinstance(snapshot_dir, str) or not snapshot_dir.strip():
+            return
+        base_dir = Path(self.config['output']['base_dir'])
+        config_name = self.config['locator']['config_name']
+        out_dir = base_dir / snapshot_dir.strip()
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"{date_str}_{config_name}.yaml"
+        try:
+            with open(out_path, 'w') as f:
+                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
+            self.logger.info(f"Config snapshot written: {out_path}")
+        except Exception as e:
+            self.logger.warning(f"Could not write config snapshot to {out_path}: {e}")
+
     def run(self, start_time, end_time, tproc='1d', run_picker=False, run_associator=False, run_locator=False, overwrite=False):
         """
         Run the complete WAV2HYP processing pipeline.
@@ -263,6 +284,10 @@ class WAV2HYP:
 
         # Start timing
         timespan_start_time = time.perf_counter()
+
+        # Snapshot config per day if enabled
+        date_str = start_time.strftime('%Y-%m-%d')
+        self._snapshot_config_if_enabled(date_str)
 
         # Get output paths
         picker_output = self._get_output_path("picker")
@@ -386,15 +411,19 @@ class WAV2HYP:
         # Update picker summary if enabled
         if self.picker_summary_exporter:
             date_str = start_time.strftime('%Y/%m/%d')
+            ncha = len(set(tr.id for tr in stream))
             picker_stats = {
                 'config': self.config['locator']['config_name'],
-                'ncha': len(stream),
+                'ncha': ncha,
                 'nsamp': sum(len(tr.data) for tr in stream),
                 'pick_model': picker_model,
                 'np': len(p_picks),
                 'ns': len(s_picks),
                 'npicks': len(picks),
-                'ndetections': len(detections)
+                'ndetections': len(detections),
+                'p_thresh': self.p_threshold,
+                's_thresh': self.s_threshold,
+                'd_thresh': self.d_threshold,
             }
             method_time = time.perf_counter() - method_start
             self.picker_summary_exporter.update_entry(date_str, picker_stats, method_time)
@@ -519,7 +548,13 @@ class WAV2HYP:
         else:
             self.logger.info(f"Writing associations to {output_path}")
             pyocto_output.write(events_df, assignments_df, metadata)
-        
+
+        # Update is_associated on picks for this time range
+        if start_time and end_time and assignments_df is not None and len(assignments_df) > 0:
+            picker_output = self._get_output_path("picker")
+            eqt_out = EQTOutput(picker_output)
+            eqt_out.update_is_associated(start_time, end_time, assignments_df)
+
         # Create ObsPy Catalog object
         catalog = VCatalog.from_pyocto(events_df, assignments_df)
         
@@ -529,8 +564,8 @@ class WAV2HYP:
             associator_stats = {
                 'config': self.config['locator']['config_name'],
                 'assoc_method': 'pyocto',
-                'assignments': len(assignments_df) if assignments_df is not None else 0,
-                'events': len(events_df) if events_df is not None else 0
+                'nassignments': len(assignments_df) if assignments_df is not None else 0,
+                'nevents': len(events_df) if events_df is not None else 0,
             }
             method_time = time.perf_counter() - method_start
             self.associator_summary_exporter.update_entry(date_str, associator_stats, method_time)
@@ -598,8 +633,8 @@ class WAV2HYP:
         # TODO Use this to create a method read_nll_loc() in nllpy (recommended) or vdapseisutils
         from obspy.io.nlloc.core import read_nlloc_hyp
         import glob
-        self.logger.info(f"Reading NonLinLoc hyp files: ({os.path.join(nll_home, config.output_obs + f"*.hyp")})")
-        full_search_path = os.path.join(nll_home, config.output_obs + f"*.hyp")  # config.output_obs includes the prefix for the .hyp files
+        full_search_path = os.path.join(nll_home, config.output_obs + "*.hyp")  # config.output_obs includes the prefix for the .hyp files
+        self.logger.info(f"Reading NonLinLoc hyp files: ({full_search_path})")
         hyp_files = glob.glob(full_search_path)  # all .hyp files in the loc directory
         filtered_files = [f for f in hyp_files if 'sum' not in f]  # remove summary files
         # Read all filtered files
@@ -648,7 +683,7 @@ class WAV2HYP:
             locator_stats = {
                 'config': self.config['locator']['config_name'],
                 'loc_method': 'nll',
-                'locations': len(catalog_out)
+                'nlocations': len(catalog_out),
             }
             method_time = time.perf_counter() - method_start
             self.locator_summary_exporter.update_entry(date_str, locator_stats, method_time)
