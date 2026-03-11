@@ -103,7 +103,7 @@ class WAV2HYP:
             self.logger.info(f"Locator summary exporter initialized: {self.locator_summary_exporter.summary_file}")
         
         self.logger.info("WAV2HYP processor initialized")
-        print_config_summary(self.config)
+        print_config_summary(self.config, logger=self.logger)
         
     def _initialize_waveform_client(self):
         """Initialize waveform client using VClient with datasource parameter."""

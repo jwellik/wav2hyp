@@ -70,6 +70,8 @@ def validate_config(config):
         config['output']['associator_summary'] = None  # None = disabled, string = custom filename
     if 'locator_summary' not in config['output']:
         config['output']['locator_summary'] = None  # None = disabled, string = custom filename
+    if 'config_snapshot_dir' not in config['output']:
+        config['output']['config_snapshot_dir'] = None  # None/false = disabled, non-empty string = subdir for per-day config snapshots
     
     # Validate waveform_client configuration
     waveform_config = config['waveform_client']
@@ -155,59 +157,67 @@ def get_global_variables(config):
     }
 
 
-def print_config_summary(config):
+def print_config_summary(config, logger=None):
     """
     Print a summary of the loaded configuration.
-    
+    Optionally duplicate each line to logger when provided (e.g. for log file).
+
     Parameters
     ----------
     config : dict
         Configuration dictionary.
+    logger : logging.Logger, optional
+        If set, each summary line is also logged with logger.info().
     """
-    print("=" * 60)
-    print("WAV2HYP Configuration Summary")
-    print("=" * 60)
-    
+    def _out(msg):
+        print(msg)
+        if logger is not None:
+            logger.info(msg)
+
+    _out("=" * 60)
+    _out("WAV2HYP Configuration Summary")
+    _out("=" * 60)
+
     # Target information
     target = config['target']
-    print(f"Target: {target['name']}")
-    print(f"Location: {target['latitude']:.2f}°N, {target['longitude']:.2f}°W")
-    print(f"Elevation: {target['elevation']:.0f} m")
-    
+    _out(f"Target: {target['name']}")
+    _out(f"Location: {target['latitude']:.2f}°N, {target['longitude']:.2f}°W")
+    _out(f"Elevation: {target['elevation']:.0f} m")
+
     # Waveform client
     waveform_config = config['waveform_client']
     datasource = waveform_config['datasource']
-    print(f"\nWaveform Datasource: {datasource}")
-    
+    _out(f"\nWaveform Datasource: {datasource}")
+
     if 'client_type' in waveform_config:
-        print(f"Client Type: {waveform_config['client_type']}")
-    
+        _out(f"Client Type: {waveform_config['client_type']}")
+
     # Show additional parameters
-    additional_params = {k: v for k, v in waveform_config.items() 
+    additional_params = {k: v for k, v in waveform_config.items()
                        if k not in ['datasource', 'client_type']}
     if additional_params:
-        print(f"Additional Parameters: {additional_params}")
-    
+        _out(f"Additional Parameters: {additional_params}")
+
     # Output paths
-    print(f"\nOutput Directory: {config['output']['base_dir']}")
-    
+    _out(f"\nOutput Directory: {config['output']['base_dir']}")
+
     # Picker settings
     picker = config['picker']
-    print(f"\nPicker Model: {picker['model']}")
-    print(f"Thresholds - P: {picker['p_threshold']}, S: {picker['s_threshold']}, D: {picker['d_threshold']}")
-    
+    _out(f"\nPicker Model: {picker['model']}")
+    _out(f"Thresholds - P: {picker['p_threshold']}, S: {picker['s_threshold']}, D: {picker['d_threshold']}")
+
     # Associator settings
     assoc = config['associator']
-    print(f"\nAssociation Radius: {assoc['radius_km']} km")
-    print(f"Velocity Model - P: {assoc['p_velocity']} km/s, S: {assoc['s_velocity']} km/s")
-    print(f"Min Picks - P: {assoc['min_p_picks']}, S: {assoc['min_s_picks']}")
-    
+    _out(f"\nAssociation Radius: {assoc['radius_km']} km")
+    _out(f"Velocity Model - P: {assoc['p_velocity']} km/s, S: {assoc['s_velocity']} km/s")
+    _out(f"Min Picks - P: {assoc['min_p_picks']}, S: {assoc['min_s_picks']}")
+
     # Locator settings
     locator = config['locator']
-    print(f"\nNonLinLoc Home: {locator['nll_home']}")
-    print(f"Config Name: {locator['config_name']}")
-    
-    print("=" * 60)
+    _out(f"\nNonLinLoc Home: {locator['nll_home']}")
+    _out(f"Config Name: {locator['config_name']}")
+
+    _out("=" * 60)
 
 
 # Example usage and testing
