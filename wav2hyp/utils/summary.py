@@ -2,7 +2,8 @@
 Summary export functionality for WAV2HYP pipeline.
 
 This module provides real-time and retrospective summary generation for processing
-statistics and timing information.
+statistics and timing information. Summary text files can be written from HDF5
+summary tables (single source of truth).
 """
 
 import os
@@ -14,6 +15,45 @@ from typing import Dict, Any, Optional, List
 import pandas as pd
 
 from obspy import UTCDateTime
+
+
+def write_summary_txt_from_hdf5(hdf5_path: str, summary_txt_path: str, step: str) -> None:
+    """
+    Read the 'summary' table from an HDF5 file and write it to a CSV summary text file.
+    Used so that *_picker_summary.txt, *_associator_summary.txt, *_locator_summary.txt
+    are driven by the HDF5 summary tables.
+
+    Parameters
+    ----------
+    hdf5_path : str
+        Path to the HDF5 file (picks, associations, or locations).
+    summary_txt_path : str
+        Path to the output CSV summary file.
+    step : str
+        One of 'picker', 'associator', 'locator' (determines column order).
+    """
+    path = Path(hdf5_path)
+    if not path.exists():
+        return
+    try:
+        df = pd.read_hdf(hdf5_path, key='summary')
+    except (KeyError, FileNotFoundError):
+        return
+    if df is None or len(df) == 0:
+        return
+    out = Path(summary_txt_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if step == 'picker':
+        cols = ['date', 'config', 'ncha', 'nsamp', 'pick_model', 'np', 'ns', 'npicks', 'ndetections',
+                'p_thresh', 's_thresh', 'd_thresh', 't_exec_pick', 't_updated_pick']
+    elif step == 'associator':
+        cols = ['date', 'config', 'assoc_method', 'nassignments', 'nevents', 't_exec_assoc', 't_updated_assoc']
+    elif step == 'locator':
+        cols = ['date', 'config', 'loc_method', 'nlocations', 't_exec_loc', 't_update_loc']
+    else:
+        raise ValueError(f"Unknown step: {step}")
+    cols = [c for c in cols if c in df.columns]
+    df[cols].to_csv(out, index=False)
 
 
 class SummaryExporter:
@@ -69,11 +109,11 @@ class SummaryExporter:
     def _write_header(self):
         """Write CSV header to summary file based on processing step."""
         if self.step == 'picker':
-            header = ['date', 'config', 'ncha', 'nsamp', 'pick_model', 'np', 'ns', 'npicks', 'ndetections', 't_pick', 'last_updated']
+            header = ['date', 'config', 'ncha', 'nsamp', 'pick_model', 'np', 'ns', 'npicks', 'ndetections', 'p_thresh', 's_thresh', 'd_thresh', 't_exec_pick', 't_updated_pick']
         elif self.step == 'associator':
-            header = ['date', 'config', 'assoc_method', 'assignments', 'events', 't_assoc', 'last_updated']
+            header = ['date', 'config', 'assoc_method', 'nassignments', 'nevents', 't_exec_assoc', 't_updated_assoc']
         elif self.step == 'locator':
-            header = ['date', 'config', 'loc_method', 'locations', 't_loc', 'last_updated']
+            header = ['date', 'config', 'loc_method', 'nlocations', 't_exec_loc', 't_update_loc']
         else:
             raise ValueError(f"Unknown step: {self.step}")
         
@@ -117,9 +157,15 @@ class SummaryExporter:
         elif self.step == 'locator':
             self._update_locator_data(entry, stats, timing)
         
-        # Update last_updated timestamp
-        entry['last_updated'] = datetime.now().strftime('%Y/%m/%dT%H:%M:%S')
-        
+        # Update step-specific timestamp
+        ts = datetime.now().strftime('%Y/%m/%dT%H:%M:%S')
+        if self.step == 'picker':
+            entry['t_updated_pick'] = ts
+        elif self.step == 'associator':
+            entry['t_updated_assoc'] = ts
+        elif self.step == 'locator':
+            entry['t_update_loc'] = ts
+
         # Write updated data back to file
         self._write_data(existing_data)
     
@@ -161,27 +207,30 @@ class SummaryExporter:
                 'ns': 0,
                 'npicks': 0,
                 'ndetections': 0,
-                't_pick': 0.0,
-                'last_updated': ''
+                'p_thresh': 0.0,
+                's_thresh': 0.0,
+                'd_thresh': 0.0,
+                't_exec_pick': 0.0,
+                't_updated_pick': ''
             }
         elif self.step == 'associator':
             new_entry = {
                 'date': date,
                 'config': '',
                 'assoc_method': '',
-                'assignments': 0,
-                'events': 0,
-                't_assoc': 0.0,
-                'last_updated': ''
+                'nassignments': 0,
+                'nevents': 0,
+                't_exec_assoc': 0.0,
+                't_updated_assoc': ''
             }
         elif self.step == 'locator':
             new_entry = {
                 'date': date,
                 'config': '',
                 'loc_method': '',
-                'locations': 0,
-                't_loc': 0.0,
-                'last_updated': ''
+                'nlocations': 0,
+                't_exec_loc': 0.0,
+                't_update_loc': ''
             }
         else:
             raise ValueError(f"Unknown step: {self.step}")
@@ -199,22 +248,25 @@ class SummaryExporter:
         entry['ns'] = stats.get('ns', 0)
         entry['npicks'] = stats.get('npicks', 0)
         entry['ndetections'] = stats.get('ndetections', 0)
-        entry['t_pick'] = timing
-    
+        entry['p_thresh'] = stats.get('p_thresh', 0.0)
+        entry['s_thresh'] = stats.get('s_thresh', 0.0)
+        entry['d_thresh'] = stats.get('d_thresh', 0.0)
+        entry['t_exec_pick'] = timing
+
     def _update_associator_data(self, entry: Dict[str, Any], stats: Dict[str, Any], timing: float):
         """Update entry with associator statistics."""
         entry['config'] = stats.get('config', '')
         entry['assoc_method'] = stats.get('assoc_method', '')
-        entry['assignments'] = stats.get('assignments', 0)
-        entry['events'] = stats.get('events', 0)
-        entry['t_assoc'] = timing
-    
+        entry['nassignments'] = stats.get('nassignments', 0)
+        entry['nevents'] = stats.get('nevents', 0)
+        entry['t_exec_assoc'] = timing
+
     def _update_locator_data(self, entry: Dict[str, Any], stats: Dict[str, Any], timing: float):
         """Update entry with locator statistics."""
         entry['config'] = stats.get('config', '')
         entry['loc_method'] = stats.get('loc_method', '')
-        entry['locations'] = stats.get('locations', 0)
-        entry['t_loc'] = timing
+        entry['nlocations'] = stats.get('nlocations', 0)
+        entry['t_exec_loc'] = timing
 
 
 def generate_summary_from_files(base_output_dir: str, config_name: str, 

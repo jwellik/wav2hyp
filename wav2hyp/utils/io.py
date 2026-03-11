@@ -29,6 +29,7 @@ Author: WAV2HYP Development Team
 from obspy import UTCDateTime
 from seisbench.util.annotations import PickList as SBPickList, DetectionList as SBDetectionList
 import pandas as pd
+import numpy as np
 import os
 import h5py
 import json
@@ -73,6 +74,7 @@ class PickListX(SBPickList):
             - **peak_time** (datetime): Time of maximum probability/peak detection
             - **peak_value** (float): Maximum probability value (0.0-1.0)
             - **phase** (str): Seismic phase type ("P" or "S")
+            - **is_associated** (object): True/False if known, else pd.NA (for association status)
             - **index** (int): Sequential row index (added after sorting)
             
         Notes
@@ -90,6 +92,7 @@ class PickListX(SBPickList):
                     "peak_time": p.peak_time.datetime,
                     "peak_value": p.peak_value,
                     "phase": p.phase,
+                    "is_associated": pd.NA,
                 }
             )
         pick_df = pd.DataFrame(pick_df)
@@ -120,6 +123,8 @@ class PickListX(SBPickList):
         -----
         Datetime columns can be provided as datetime objects or strings that
         can be parsed by ObsPy's UTCDateTime constructor.
+        Optional column is_associated is ignored when building Pick objects
+        (backward compatible with files that do not have this column).
         """
         # Convert back to seisbench PickList format
         from seisbench.util.annotations import PickList, Pick
@@ -287,18 +292,60 @@ class EQTOutput:
     - metadata (JSON string): Processing parameters and configuration
     """
     
+    # Indexed data_columns for fast where= queries
+    PICKS_DATA_COLUMNS = ['peak_time', 'is_associated', 'peak_value']
+    DETECTIONS_DATA_COLUMNS = ['start_time', 'peak_value']
+
     def __init__(self, output_path, time_range=None):
         self.output_path = output_path
         self.time_range = time_range  # (t1, t2) tuple for cleaning existing data
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    def write(self, pick_list, detection_list, metadata):
+    @staticmethod
+    def _where_time_bounds(time_col, t1, t2):
+        """Build a PyTables where string for time column between t1 and t2 (inclusive).
+        t1, t2 can be UTCDateTime or str. Returns None if both t1 and t2 are None.
+        Uses nanosecond timestamps for reliable comparison with stored datetime64.
+        """
+        if t1 is None and t2 is None:
+            return None
+        if isinstance(t1, str):
+            t1 = UTCDateTime(t1)
+        if isinstance(t2, str):
+            t2 = UTCDateTime(t2)
+        ts_lo = pd.Timestamp(t1.datetime).value if t1 is not None else None
+        ts_hi = pd.Timestamp(t2.datetime).value if t2 is not None else None
+        if ts_lo is not None and ts_hi is not None:
+            return f"({time_col} >= {ts_lo}) & ({time_col} <= {ts_hi})"
+        if ts_lo is not None:
+            return f"({time_col} >= {ts_lo})"
+        return f"({time_col} <= {ts_hi})"
+
+    @staticmethod
+    def _where_outside_time_bounds(time_col, t1, t2):
+        """Build a PyTables where string for time column outside [t1, t2] (exclusive)."""
+        if t1 is None and t2 is None:
+            return None
+        if isinstance(t1, str):
+            t1 = UTCDateTime(t1)
+        if isinstance(t2, str):
+            t2 = UTCDateTime(t2)
+        ts_lo = pd.Timestamp(t1.datetime).value if t1 is not None else None
+        ts_hi = pd.Timestamp(t2.datetime).value if t2 is not None else None
+        if ts_lo is not None and ts_hi is not None:
+            return f"({time_col} < {ts_lo}) | ({time_col} > {ts_hi})"
+        if ts_lo is not None:
+            return f"({time_col} < {ts_lo})"
+        return f"({time_col} > {ts_hi})"
+
+    def write(self, pick_list, detection_list, metadata, summary_stats=None):
         """
         Write EQTransformer picks and detections to HDF5 file.
         
         Automatically cleans existing data within the specified time range before
         writing new data. Data is merged with existing data outside the time range.
-        
+        Optionally writes a daily summary table and pick_peak_histogram table.
+
         Parameters
         ----------
         pick_list : PickListX or seisbench.PickList
@@ -307,7 +354,12 @@ class EQTOutput:
             List of earthquake detections
         metadata : dict
             Processing metadata to store as file attributes
-            
+        summary_stats : dict, optional
+            If provided, one row is appended to the 'summary' table and
+            histogram rows to 'pick_peak_histogram'. Keys: date, config, ncha,
+            nsamp, pick_model, np, ns, npicks, ndetections, p_thresh, s_thresh,
+            d_thresh, t_exec_pick, t_updated_pick (t_updated_pick optional).
+
         Notes
         -----
         If time_range was specified during initialization, any existing data
@@ -315,9 +367,26 @@ class EQTOutput:
         """
         print(f"Writing EQT output to {self.output_path}")
 
+        # If we will overwrite the file (time-range replacement), preserve existing summary/histogram
+        existing_summary_df = None
+        existing_hist_df = None
+        if summary_stats is not None and self.time_range is not None and os.path.exists(self.output_path):
+            try:
+                existing_summary_df = pd.read_hdf(self.output_path, key='summary')
+            except (KeyError, FileNotFoundError):
+                pass
+            try:
+                existing_hist_df = pd.read_hdf(self.output_path, key='pick_peak_histogram')
+            except (KeyError, FileNotFoundError):
+                pass
+
         # Convert (SeisBench) PickList to (Pandas) DataFrame
         picks_df = PickListX(pick_list).to_dataframe()
         detections_df = DetectionListX(detection_list).to_dataframe()
+
+        # Ensure is_associated exists for picks (for schema consistency)
+        if 'is_associated' not in picks_df.columns:
+            picks_df['is_associated'] = pd.NA
 
         # Handle time-based data replacement
         if self.time_range is not None and os.path.exists(self.output_path):
@@ -328,24 +397,115 @@ class EQTOutput:
             
             # Combine existing (filtered) data with new data
             if len(existing_picks_filtered) > 0:
+                if 'is_associated' not in existing_picks_filtered.columns:
+                    existing_picks_filtered = existing_picks_filtered.copy()
+                    existing_picks_filtered['is_associated'] = pd.NA
                 picks_df = pd.concat([existing_picks_filtered, picks_df], ignore_index=True)
             if len(existing_detections_filtered) > 0:
                 detections_df = pd.concat([existing_detections_filtered, detections_df], ignore_index=True)
             
             # Write combined data (overwrite file to avoid schema conflicts)
             if len(picks_df) > 0:
-                picks_df.to_hdf(self.output_path, key='picks', mode='w', format='table')
+                picks_df.to_hdf(
+                    self.output_path, key='picks', mode='w', format='table',
+                    data_columns=self.PICKS_DATA_COLUMNS
+                )
             if len(detections_df) > 0:
-                detections_df.to_hdf(self.output_path, key='detections', mode='a', format='table')
+                detections_df.to_hdf(
+                    self.output_path, key='detections', mode='a', format='table',
+                    data_columns=self.DETECTIONS_DATA_COLUMNS
+                )
         else:
             # No time range specified or file doesn't exist, append normally
             if len(picks_df) > 0:
-                picks_df.to_hdf(self.output_path, key='picks', mode='a', append=True, format='table')
+                picks_df.to_hdf(
+                    self.output_path, key='picks', mode='a', append=True, format='table',
+                    data_columns=self.PICKS_DATA_COLUMNS
+                )
             if len(detections_df) > 0:
-                detections_df.to_hdf(self.output_path, key='detections', mode='a', append=True, format='table')
+                detections_df.to_hdf(
+                    self.output_path, key='detections', mode='a', append=True, format='table',
+                    data_columns=self.DETECTIONS_DATA_COLUMNS
+                )
 
         with h5py.File(self.output_path, 'a') as f:
             f.attrs['metadata'] = json.dumps(metadata)
+
+        # Write summary and pick_peak_histogram tables when summary_stats provided
+        if summary_stats is not None:
+            self._write_picker_summary_and_histogram(
+                summary_stats, picks_df, detections_df,
+                existing_summary_df=existing_summary_df,
+                existing_hist_df=existing_hist_df,
+            )
+
+    def _write_picker_summary_and_histogram(self, summary_stats, picks_df, detections_df,
+                                           existing_summary_df=None, existing_hist_df=None):
+        """Append one row to summary table and histogram rows to pick_peak_histogram."""
+        from datetime import datetime
+        date_str = summary_stats.get('date', '')
+        if not date_str:
+            return
+        if 't_updated_pick' not in summary_stats:
+            summary_stats = {**summary_stats, 't_updated_pick': datetime.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
+        summary_row = pd.DataFrame([{
+            'date': summary_stats.get('date'),
+            'config': summary_stats.get('config', ''),
+            'ncha': summary_stats.get('ncha', 0),
+            'nsamp': summary_stats.get('nsamp', 0),
+            'pick_model': summary_stats.get('pick_model', ''),
+            'np': summary_stats.get('np', 0),
+            'ns': summary_stats.get('ns', 0),
+            'npicks': summary_stats.get('npicks', 0),
+            'ndetections': summary_stats.get('ndetections', 0),
+            'p_thresh': summary_stats.get('p_thresh', 0.0),
+            's_thresh': summary_stats.get('s_thresh', 0.0),
+            'd_thresh': summary_stats.get('d_thresh', 0.0),
+            't_exec_pick': summary_stats.get('t_exec_pick', 0.0),
+            't_updated_pick': summary_stats.get('t_updated_pick', ''),
+        }])
+        if existing_summary_df is not None:
+            existing = existing_summary_df[existing_summary_df['date'].astype(str) != str(date_str)]
+            summary_df = pd.concat([existing, summary_row], ignore_index=True)
+        else:
+            try:
+                existing = pd.read_hdf(self.output_path, key='summary')
+                existing = existing[existing['date'].astype(str) != str(date_str)]
+                summary_df = pd.concat([existing, summary_row], ignore_index=True)
+            except (KeyError, FileNotFoundError):
+                summary_df = summary_row
+        with pd.HDFStore(self.output_path, 'a') as store:
+            if 'summary' in store:
+                del store['summary']
+            store.append('summary', summary_df, format='table')
+        # Histogram: peak_value binned to 2 decimals, per phase (P, S, D)
+        hist_rows = []
+        for phase, df in [('P', picks_df[picks_df['phase'] == 'P'] if len(picks_df) and 'phase' in picks_df.columns else pd.DataFrame()),
+                          ('S', picks_df[picks_df['phase'] == 'S'] if len(picks_df) and 'phase' in picks_df.columns else pd.DataFrame()),
+                          ('D', detections_df if len(detections_df) and 'peak_value' in detections_df.columns else pd.DataFrame())]:
+            if df is None or len(df) == 0 or 'peak_value' not in df.columns:
+                continue
+            pv = df['peak_value'].round(2)
+            for bin_val, count in pv.value_counts().items():
+                hist_rows.append({'date': date_str, 'phase': phase, 'peak_value_bin': float(bin_val), 'count': int(count)})
+        if not hist_rows:
+            new_hist_df = pd.DataFrame(columns=['date', 'phase', 'peak_value_bin', 'count'])
+        else:
+            new_hist_df = pd.DataFrame(hist_rows)
+        if existing_hist_df is not None:
+            existing_hist = existing_hist_df[existing_hist_df['date'].astype(str) != str(date_str)]
+            hist_df = pd.concat([existing_hist, new_hist_df], ignore_index=True)
+        else:
+            try:
+                existing_hist = pd.read_hdf(self.output_path, key='pick_peak_histogram')
+                existing_hist = existing_hist[existing_hist['date'].astype(str) != str(date_str)]
+                hist_df = pd.concat([existing_hist, new_hist_df], ignore_index=True)
+            except (KeyError, FileNotFoundError):
+                hist_df = new_hist_df
+        with pd.HDFStore(self.output_path, 'a') as store:
+            if 'pick_peak_histogram' in store:
+                del store['pick_peak_histogram']
+            store.append('pick_peak_histogram', hist_df, format='table')
 
     def _get_filtered_existing_data(self, t1, t2):
         """
@@ -353,6 +513,7 @@ class EQTOutput:
         
         This private method returns existing data outside the specified time range,
         allowing new data to replace only the data within the time range.
+        Uses where= to avoid loading the full tables into memory.
         
         Parameters
         ----------
@@ -368,32 +529,44 @@ class EQTOutput:
         """
         print(f"Filtering existing EQT data to exclude {t1} to {t2}")
         
-        # Read existing data
+        where_picks = self._where_outside_time_bounds('peak_time', t1, t2)
+        where_detections = self._where_outside_time_bounds('start_time', t1, t2)
+
         try:
-            picks_df = pd.read_hdf(self.output_path, key='picks')
-            detections_df = pd.read_hdf(self.output_path, key='detections')
+            if where_picks is not None:
+                try:
+                    picks_filtered = pd.read_hdf(self.output_path, key='picks', where=where_picks)
+                except (TypeError, ValueError):
+                    picks_df = pd.read_hdf(self.output_path, key='picks')
+                    t1_dt = UTCDateTime(t1).datetime if isinstance(t1, str) else t1.datetime
+                    t2_dt = UTCDateTime(t2).datetime if isinstance(t2, str) else t2.datetime
+                    picks_filtered = picks_df[~((picks_df['peak_time'] >= t1_dt) & (picks_df['peak_time'] <= t2_dt))]
+            else:
+                picks_filtered = pd.read_hdf(self.output_path, key='picks')
+            if where_detections is not None:
+                try:
+                    detections_filtered = pd.read_hdf(self.output_path, key='detections', where=where_detections)
+                except (TypeError, ValueError):
+                    detections_df = pd.read_hdf(self.output_path, key='detections')
+                    t1_dt = UTCDateTime(t1).datetime if isinstance(t1, str) else t1.datetime
+                    t2_dt = UTCDateTime(t2).datetime if isinstance(t2, str) else t2.datetime
+                    detections_filtered = detections_df[~((detections_df['start_time'] >= t1_dt) & (detections_df['start_time'] <= t2_dt))]
+            else:
+                detections_filtered = pd.read_hdf(self.output_path, key='detections')
         except (KeyError, FileNotFoundError):
-            # No existing data to filter
             return pd.DataFrame(), pd.DataFrame()
-            
-        # Convert time parameters to datetime if needed
-        from obspy import UTCDateTime
-        if isinstance(t1, str):
-            t1 = UTCDateTime(t1)
-        if isinstance(t2, str):
-            t2 = UTCDateTime(t2)
-            
-        t1_dt = t1.datetime
-        t2_dt = t2.datetime
-        
-        # Keep data OUTSIDE the time range (inverse of the time range)
-        picks_filtered = picks_df[~((picks_df['peak_time'] >= t1_dt) & (picks_df['peak_time'] <= t2_dt))]
-        detections_filtered = detections_df[~((detections_df['start_time'] >= t1_dt) & (detections_df['start_time'] <= t2_dt))]
-        
-        # Calculate removed counts
-        picks_removed = len(picks_df) - len(picks_filtered)
-        detections_removed = len(detections_df) - len(detections_filtered)
-        
+
+        # Get total row counts for logging (without loading full tables)
+        try:
+            with pd.HDFStore(self.output_path, 'r') as store:
+                n_picks_total = store.get_storer('picks').table.nrows
+                n_det_total = store.get_storer('detections').table.nrows
+        except Exception:
+            n_picks_total = len(picks_filtered)
+            n_det_total = len(detections_filtered)
+        picks_removed = n_picks_total - len(picks_filtered) if where_picks else 0
+        detections_removed = n_det_total - len(detections_filtered) if where_detections else 0
+
         print(f"Removing {picks_removed} picks and {detections_removed} detections within time range. "
               f"Keeping {len(picks_filtered)} picks and {len(detections_filtered)} detections outside time range.")
         return picks_filtered, detections_filtered
@@ -401,6 +574,9 @@ class EQTOutput:
     def read(self, t1=None, t2=None):
         """
         Read EQTransformer results from HDF5 file with optional time filtering.
+        
+        Uses where= on peak_time (picks) and start_time (detections) when t1/t2
+        are provided, so only rows in the time window are loaded.
         
         Parameters
         ----------
@@ -422,29 +598,48 @@ class EQTOutput:
         Prints summary statistics of loaded data.
         """
         print(f"Reading EQT output from {self.output_path}")
-        picks_df = pd.read_hdf(self.output_path, key='picks')
-        detections_df = pd.read_hdf(self.output_path, key='detections')
-        
-        # Apply time filtering if requested
+        where_picks = self._where_time_bounds('peak_time', t1, t2)
+        where_detections = self._where_time_bounds('start_time', t1, t2)
+
+        try:
+            if where_picks is not None:
+                try:
+                    picks_df = pd.read_hdf(self.output_path, key='picks', where=where_picks)
+                except (TypeError, ValueError):
+                    picks_df = pd.read_hdf(self.output_path, key='picks')
+                    if t1 is not None:
+                        picks_df = picks_df[picks_df['peak_time'] >= pd.Timestamp(UTCDateTime(t1).datetime)]
+                    if t2 is not None:
+                        picks_df = picks_df[picks_df['peak_time'] <= pd.Timestamp(UTCDateTime(t2).datetime)]
+            else:
+                picks_df = pd.read_hdf(self.output_path, key='picks')
+            if where_detections is not None:
+                try:
+                    detections_df = pd.read_hdf(self.output_path, key='detections', where=where_detections)
+                except (TypeError, ValueError):
+                    detections_df = pd.read_hdf(self.output_path, key='detections')
+                    if t1 is not None:
+                        detections_df = detections_df[detections_df['start_time'] >= pd.Timestamp(UTCDateTime(t1).datetime)]
+                    if t2 is not None:
+                        detections_df = detections_df[detections_df['start_time'] <= pd.Timestamp(UTCDateTime(t2).datetime)]
+            else:
+                detections_df = pd.read_hdf(self.output_path, key='detections')
+        except (KeyError, FileNotFoundError) as e:
+            print(f"WARNING: Could not read EQT output: {e}")
+            raise
+
         if t1 is not None or t2 is not None:
-            if t1 is not None:
-                if isinstance(t1, str):
-                    t1 = UTCDateTime(t1)
-                picks_df = picks_df[picks_df['peak_time'] >= t1.datetime]
-                detections_df = detections_df[detections_df['start_time'] >= t1.datetime]
-            
-            if t2 is not None:
-                if isinstance(t2, str):
-                    t2 = UTCDateTime(t2)
-                picks_df = picks_df[picks_df['peak_time'] <= t2.datetime]
-                detections_df = detections_df[detections_df['start_time'] <= t2.datetime]
-            
             print(f"Time filtered from {t1} to {t2}")
-        
+
+        # Backward compatibility: ensure is_associated column exists (old files may not have it)
+        if 'is_associated' not in picks_df.columns:
+            picks_df = picks_df.copy()
+            picks_df['is_associated'] = pd.NA
+
         try:
             with h5py.File(self.output_path, 'r') as f:
                 metadata = json.loads(f.attrs['metadata'])
-        except:
+        except Exception:
             print("WARNING: Could not load metadata from HDF5 file. Return None.")
             metadata = None
 
@@ -455,6 +650,92 @@ class EQTOutput:
         print(f"Detections: {len(detections_df):5d} | P picks: {p_picks_count:5d} | S picks: {s_picks_count:5d}\n")
 
         return PickListX.from_dataframe(picks_df), DetectionListX.from_dataframe(detections_df), metadata
+
+    def update_is_associated(self, t1, t2, assignments_df):
+        """
+        Update the is_associated column for picks in [t1, t2] based on assignments.
+        Picks that appear in assignments_df are set True; others False.
+        Uses where= to read only the affected time range and the rest, then rewrites the picks table.
+
+        Parameters
+        ----------
+        t1 : UTCDateTime or str
+            Start of time range that was just associated
+        t2 : UTCDateTime or str
+            End of time range
+        assignments_df : pd.DataFrame
+            Must have columns station_id, phase, pick_time (Unix float)
+        """
+        if assignments_df is None or len(assignments_df) == 0:
+            return
+        if 'station_id' not in assignments_df.columns or 'phase' not in assignments_df.columns or 'pick_time' not in assignments_df.columns:
+            return
+        if not os.path.exists(self.output_path):
+            return
+
+        where_in = self._where_time_bounds('peak_time', t1, t2)
+        where_out = self._where_outside_time_bounds('peak_time', t1, t2)
+        if where_in is None:
+            return
+
+        # Build set of (station_id, phase, pick_time_rounded) from assignments
+        def station_from_trace(trace_id):
+            parts = trace_id.split('.')
+            return '.'.join(parts[:2]) if len(parts) >= 2 else trace_id
+
+        tol_s = 0.05
+        associated_set = set()
+        for _, row in assignments_df.iterrows():
+            sid = str(row['station_id']).strip()
+            ph = str(row['phase']).strip()
+            t = float(row['pick_time'])
+            associated_set.add((sid, ph, round(t / tol_s) * tol_s))
+
+        # Read picks in [t1, t2]
+        picks_in = pd.read_hdf(self.output_path, key='picks', where=where_in)
+        if 'is_associated' not in picks_in.columns:
+            picks_in = picks_in.copy()
+            picks_in['is_associated'] = pd.NA
+        picks_in = picks_in.copy()
+        is_assoc = []
+        for _, row in picks_in.iterrows():
+            pt = pd.Timestamp(row['peak_time'])
+            unix = pt.value / 1e9
+            key = (station_from_trace(row['trace_id']), str(row['phase']).strip(), round(unix / tol_s) * tol_s)
+            is_assoc.append(key in associated_set)
+        picks_in['is_associated'] = is_assoc
+
+        # Read picks outside [t1, t2]
+        if where_out is not None:
+            picks_out = pd.read_hdf(self.output_path, key='picks', where=where_out)
+            if 'is_associated' not in picks_out.columns:
+                picks_out = picks_out.copy()
+                picks_out['is_associated'] = pd.NA
+            picks_df = pd.concat([picks_out, picks_in], ignore_index=True)
+        else:
+            picks_df = picks_in
+        picks_df.sort_values('peak_time', inplace=True)
+        picks_df.reset_index(drop=True, inplace=True)
+
+        # Rewrite picks table (preserve detections and metadata)
+        with pd.HDFStore(self.output_path, 'a') as store:
+            if 'picks' in store:
+                del store['picks']
+        if len(picks_df) > 0:
+            picks_df.to_hdf(
+                self.output_path, key='picks', mode='a', format='table',
+                data_columns=self.PICKS_DATA_COLUMNS
+            )
+        try:
+            with h5py.File(self.output_path, 'r') as f:
+                meta = f.attrs.get('metadata', None)
+            if meta is not None:
+                with h5py.File(self.output_path, 'a') as f:
+                    f.attrs['metadata'] = meta
+        except Exception:
+            pass
+        n_true = sum(picks_in['is_associated'])
+        print(f"Updated is_associated for {len(picks_in)} picks in [{t1}, {t2}]: {n_true} associated.")
 
 
 class PyOctoOutput:
@@ -515,12 +796,12 @@ class PyOctoOutput:
         self.time_range = time_range  # (t1, t2) tuple for cleaning existing data
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    def write(self, events_df, assignments_df, metadata):
+    def write(self, events_df, assignments_df, metadata, summary_stats=None):
         """
         Write PyOcto events and assignments to HDF5 file.
         
         Automatically cleans existing data within the specified time range before
-        writing new data. Data is merged with existing data outside the time range.
+        writing new data. Optionally appends one row to the 'summary' table.
         
         Parameters
         ----------
@@ -530,6 +811,9 @@ class PyOctoOutput:
             DataFrame containing phase-to-event assignments (see class docstring for column details)
         metadata : dict
             Processing metadata to store as file attributes
+        summary_stats : dict, optional
+            If provided, one row is appended to the 'summary' table. Keys: date, config,
+            assoc_method, nassignments, nevents, t_exec_assoc, t_updated_assoc (optional).
             
         Notes
         -----
@@ -537,6 +821,13 @@ class PyOctoOutput:
         within that time range will be removed before writing new data.
         """
         print(f"Writing PyOcto output to {self.output_path}")
+
+        existing_summary_df = None
+        if summary_stats is not None and self.time_range is not None and os.path.exists(self.output_path):
+            try:
+                existing_summary_df = pd.read_hdf(self.output_path, key='summary')
+            except (KeyError, FileNotFoundError):
+                pass
 
         # Handle time-based data replacement
         if self.time_range is not None and os.path.exists(self.output_path):
@@ -571,6 +862,41 @@ class PyOctoOutput:
 
         with h5py.File(self.output_path, 'a') as f:
             f.attrs['metadata'] = json.dumps(metadata)
+
+        if summary_stats is not None:
+            self._write_associator_summary(summary_stats, existing_summary_df=existing_summary_df)
+
+    def _write_associator_summary(self, summary_stats, existing_summary_df=None):
+        """Append one row to summary table."""
+        from datetime import datetime
+        date_str = summary_stats.get('date', '')
+        if not date_str:
+            return
+        if 't_updated_assoc' not in summary_stats:
+            summary_stats = {**summary_stats, 't_updated_assoc': datetime.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
+        summary_row = pd.DataFrame([{
+            'date': summary_stats.get('date'),
+            'config': summary_stats.get('config', ''),
+            'assoc_method': summary_stats.get('assoc_method', ''),
+            'nassignments': summary_stats.get('nassignments', 0),
+            'nevents': summary_stats.get('nevents', 0),
+            't_exec_assoc': summary_stats.get('t_exec_assoc', 0.0),
+            't_updated_assoc': summary_stats.get('t_updated_assoc', ''),
+        }])
+        if existing_summary_df is not None:
+            existing = existing_summary_df[existing_summary_df['date'].astype(str) != str(date_str)]
+            summary_df = pd.concat([existing, summary_row], ignore_index=True)
+        else:
+            try:
+                existing = pd.read_hdf(self.output_path, key='summary')
+                existing = existing[existing['date'].astype(str) != str(date_str)]
+                summary_df = pd.concat([existing, summary_row], ignore_index=True)
+            except (KeyError, FileNotFoundError):
+                summary_df = summary_row
+        with pd.HDFStore(self.output_path, 'a') as store:
+            if 'summary' in store:
+                del store['summary']
+            store.append('summary', summary_df, format='table')
 
     def _get_filtered_existing_data(self, t1, t2):
         """
@@ -766,13 +1092,12 @@ class NLLOutput:
         self.time_range = time_range  # (t1, t2) tuple for cleaning existing data
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    def write(self, catalog, metadata):
+    def write(self, catalog, metadata, summary_stats=None):
         """
         Write earthquake catalog to ASDF file with XML fallback.
         
         Automatically cleans existing data within the specified time range before
-        writing new data. Attempts to use ASDF format, falls back to XML+JSON if
-        PyASDF is not available.
+        writing new data. Optionally appends one row to the 'summary' table (HDF5 only).
         
         Parameters
         ----------
@@ -780,6 +1105,9 @@ class NLLOutput:
             Earthquake catalog to write
         metadata : dict
             Processing metadata to store with the catalog
+        summary_stats : dict, optional
+            If provided and output is HDF5, one row is appended to 'summary'. Keys:
+            date, config, loc_method, nlocations, t_exec_loc, t_update_loc (optional).
             
         Notes
         -----
@@ -787,6 +1115,13 @@ class NLLOutput:
         within that time range will be removed before writing new events.
         """
         print(f"Writing NonLinLoc output to {self.output_path}")
+
+        existing_summary_df = None
+        if summary_stats is not None and self.time_range is not None and os.path.exists(self.output_path):
+            try:
+                existing_summary_df = pd.read_hdf(self.output_path, key='summary')
+            except (KeyError, FileNotFoundError):
+                pass
         
         # Handle time-based data replacement
         if self.time_range is not None and os.path.exists(self.output_path):
@@ -843,6 +1178,8 @@ class NLLOutput:
                         metadata_group.attrs[key] = str(value)
                 
                 metadata_group.attrs['last_updated'] = str(processing_time)
+            if summary_stats is not None:
+                self._write_locator_summary(summary_stats, existing_summary_df=existing_summary_df)
                 
         except ImportError:
             print("WARNING: PyASDF not available, saving QuakeML to separate XML file")
@@ -854,6 +1191,37 @@ class NLLOutput:
             json_path = self.output_path.replace('.h5', '_metadata.json')
             with open(json_path, 'w') as f:
                 json.dump(metadata, f, indent=2, default=str)
+
+    def _write_locator_summary(self, summary_stats, existing_summary_df=None):
+        """Append one row to summary table in the HDF5 file."""
+        from datetime import datetime
+        date_str = summary_stats.get('date', '')
+        if not date_str:
+            return
+        if 't_update_loc' not in summary_stats:
+            summary_stats = {**summary_stats, 't_update_loc': datetime.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
+        summary_row = pd.DataFrame([{
+            'date': summary_stats.get('date'),
+            'config': summary_stats.get('config', ''),
+            'loc_method': summary_stats.get('loc_method', ''),
+            'nlocations': summary_stats.get('nlocations', 0),
+            't_exec_loc': summary_stats.get('t_exec_loc', 0.0),
+            't_update_loc': summary_stats.get('t_update_loc', ''),
+        }])
+        if existing_summary_df is not None:
+            existing = existing_summary_df[existing_summary_df['date'].astype(str) != str(date_str)]
+            summary_df = pd.concat([existing, summary_row], ignore_index=True)
+        else:
+            try:
+                existing = pd.read_hdf(self.output_path, key='summary')
+                existing = existing[existing['date'].astype(str) != str(date_str)]
+                summary_df = pd.concat([existing, summary_row], ignore_index=True)
+            except (KeyError, FileNotFoundError):
+                summary_df = summary_row
+        with pd.HDFStore(self.output_path, 'a') as store:
+            if 'summary' in store:
+                del store['summary']
+            store.append('summary', summary_df, format='table')
 
     def _get_filtered_existing_catalog(self, t1, t2):
         """

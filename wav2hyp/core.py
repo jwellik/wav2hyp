@@ -25,7 +25,7 @@ from vdapseisutils.utils.obspyutils.client import VClient
 from .config_loader import load_config, validate_config, get_global_variables, print_config_summary
 from .utils.io import PickListX, DetectionListX, EQTOutput, PyOctoOutput, NLLOutput
 from .utils.geo import GeoArea
-from .utils.summary import SummaryExporter
+from .utils.summary import SummaryExporter, write_summary_txt_from_hdf5
 
 
 class WAV2HYP:
@@ -395,6 +395,27 @@ class WAV2HYP:
             'D_threshold': self.d_threshold
         }
 
+        date_str = start_time.strftime('%Y/%m/%d')
+        ncha = len(set(tr.id for tr in stream))
+        method_time = time.perf_counter() - method_start
+        picker_stats = {
+            'config': self.config['locator']['config_name'],
+            'ncha': ncha,
+            'nsamp': sum(len(tr.data) for tr in stream),
+            'pick_model': picker_model,
+            'np': len(p_picks),
+            'ns': len(s_picks),
+            'npicks': len(picks),
+            'ndetections': len(detections),
+            'p_thresh': self.p_threshold,
+            's_thresh': self.s_threshold,
+            'd_thresh': self.d_threshold,
+        }
+        summary_stats = {
+            'date': date_str,
+            't_exec_pick': method_time,
+            **picker_stats,
+        }
         eqt_output = EQTOutput(output_path, time_range=(start_time, end_time))
         if not overwrite:
             try:
@@ -402,31 +423,14 @@ class WAV2HYP:
                 if (existing_picks is not None and len(existing_picks) > 0) or (existing_det is not None and len(existing_det) > 0):
                     self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
                 else:
-                    eqt_output.write(picks, detections, metadata)
+                    eqt_output.write(picks, detections, metadata, summary_stats=summary_stats)
             except (OSError, FileNotFoundError, KeyError):
-                eqt_output.write(picks, detections, metadata)
+                eqt_output.write(picks, detections, metadata, summary_stats=summary_stats)
         else:
-            eqt_output.write(picks, detections, metadata)
+            eqt_output.write(picks, detections, metadata, summary_stats=summary_stats)
         
-        # Update picker summary if enabled
         if self.picker_summary_exporter:
-            date_str = start_time.strftime('%Y/%m/%d')
-            ncha = len(set(tr.id for tr in stream))
-            picker_stats = {
-                'config': self.config['locator']['config_name'],
-                'ncha': ncha,
-                'nsamp': sum(len(tr.data) for tr in stream),
-                'pick_model': picker_model,
-                'np': len(p_picks),
-                'ns': len(s_picks),
-                'npicks': len(picks),
-                'ndetections': len(detections),
-                'p_thresh': self.p_threshold,
-                's_thresh': self.s_threshold,
-                'd_thresh': self.d_threshold,
-            }
-            method_time = time.perf_counter() - method_start
-            self.picker_summary_exporter.update_entry(date_str, picker_stats, method_time)
+            write_summary_txt_from_hdf5(output_path, str(self.picker_summary_exporter.summary_file), 'picker')
         
         # Log method timing
         method_time = time.perf_counter() - method_start
@@ -532,6 +536,17 @@ class WAV2HYP:
                 'weight': pd.Series(dtype='float64')
             })
 
+        assoc_method_time = time.perf_counter() - method_start
+        associator_summary_stats = None
+        if start_time:
+            associator_summary_stats = {
+                'date': start_time.strftime('%Y/%m/%d'),
+                'config': self.config['locator']['config_name'],
+                'assoc_method': 'pyocto',
+                'nassignments': len(assignments_df) if assignments_df is not None else 0,
+                'nevents': len(events_df) if events_df is not None else 0,
+                't_exec_assoc': assoc_method_time,
+            }
         time_range = (start_time, end_time) if start_time and end_time else None
         pyocto_output = PyOctoOutput(output_path, time_range=time_range)
         if not overwrite and start_time and end_time:
@@ -541,13 +556,13 @@ class WAV2HYP:
                     self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
                 else:
                     self.logger.info(f"Writing associations to {output_path}")
-                    pyocto_output.write(events_df, assignments_df, metadata)
+                    pyocto_output.write(events_df, assignments_df, metadata, summary_stats=associator_summary_stats)
             except (OSError, FileNotFoundError, KeyError):
                 self.logger.info(f"Writing associations to {output_path}")
-                pyocto_output.write(events_df, assignments_df, metadata)
+                pyocto_output.write(events_df, assignments_df, metadata, summary_stats=associator_summary_stats)
         else:
             self.logger.info(f"Writing associations to {output_path}")
-            pyocto_output.write(events_df, assignments_df, metadata)
+            pyocto_output.write(events_df, assignments_df, metadata, summary_stats=associator_summary_stats)
 
         # Update is_associated on picks for this time range
         if start_time and end_time and assignments_df is not None and len(assignments_df) > 0:
@@ -558,17 +573,8 @@ class WAV2HYP:
         # Create ObsPy Catalog object
         catalog = VCatalog.from_pyocto(events_df, assignments_df)
         
-        # Update associator summary if enabled
-        if self.associator_summary_exporter and start_time:
-            date_str = start_time.strftime('%Y/%m/%d')
-            associator_stats = {
-                'config': self.config['locator']['config_name'],
-                'assoc_method': 'pyocto',
-                'nassignments': len(assignments_df) if assignments_df is not None else 0,
-                'nevents': len(events_df) if events_df is not None else 0,
-            }
-            method_time = time.perf_counter() - method_start
-            self.associator_summary_exporter.update_entry(date_str, associator_stats, method_time)
+        if self.associator_summary_exporter:
+            write_summary_txt_from_hdf5(output_path, str(self.associator_summary_exporter.summary_file), 'associator')
         
         # Log method timing
         method_time = time.perf_counter() - method_start
@@ -660,6 +666,16 @@ class WAV2HYP:
             self.logger.info("No locations to write - skipping file output")
             return VCatalog()
 
+        loc_method_time = time.perf_counter() - method_start
+        locator_summary_stats = None
+        if start_time:
+            locator_summary_stats = {
+                'date': start_time.strftime('%Y/%m/%d'),
+                'config': self.config['locator']['config_name'],
+                'loc_method': 'nll',
+                'nlocations': len(catalog_out),
+                't_exec_loc': loc_method_time,
+            }
         time_range = (start_time, end_time) if start_time and end_time else None
         nll_output = NLLOutput(output_path, time_range=time_range)
         if not overwrite and start_time and end_time:
@@ -669,24 +685,16 @@ class WAV2HYP:
                     self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
                 else:
                     self.logger.info(f"Writing locations to {output_path}")
-                    nll_output.write(catalog_out, metadata)
+                    nll_output.write(catalog_out, metadata, summary_stats=locator_summary_stats)
             except (OSError, FileNotFoundError, KeyError):
                 self.logger.info(f"Writing locations to {output_path}")
-                nll_output.write(catalog_out, metadata)
+                nll_output.write(catalog_out, metadata, summary_stats=locator_summary_stats)
         else:
             self.logger.info(f"Writing locations to {output_path}")
-            nll_output.write(catalog_out, metadata)
+            nll_output.write(catalog_out, metadata, summary_stats=locator_summary_stats)
         
-        # Update locator summary if enabled
-        if self.locator_summary_exporter and start_time:
-            date_str = start_time.strftime('%Y/%m/%d')
-            locator_stats = {
-                'config': self.config['locator']['config_name'],
-                'loc_method': 'nll',
-                'nlocations': len(catalog_out),
-            }
-            method_time = time.perf_counter() - method_start
-            self.locator_summary_exporter.update_entry(date_str, locator_stats, method_time)
+        if self.locator_summary_exporter:
+            write_summary_txt_from_hdf5(output_path, str(self.locator_summary_exporter.summary_file), 'locator')
         
         # Log method timing
         method_time = time.perf_counter() - method_start
