@@ -26,6 +26,7 @@ from .config_loader import load_config, validate_config, get_global_variables, p
 from .utils.io import PickListX, DetectionListX, EQTOutput, PyOctoOutput, NLLOutput
 from .utils.geo import GeoArea
 from .utils.summary import SummaryExporter, write_summary_txt_from_hdf5
+from .utils.velocity import parse_nll_layer_file
 
 
 class WAV2HYP:
@@ -635,6 +636,18 @@ class WAV2HYP:
         config.filename = f"{name}.in"
         config.input_obs = (f"{obs}", "NLLOC_OBS")
         config.output_obs = f"{loc}/{name}"
+        # Optional: load velocity model from file (NonLinLoc LAYER format)
+        velocity_model_file = locator_config.get('velocity_model_file')
+        if velocity_model_file:
+            vel_path = os.path.abspath(os.path.expanduser(velocity_model_file))
+            if not os.path.isfile(vel_path):
+                self.logger.warning(f"Velocity model file not found: {vel_path}, using default")
+            else:
+                try:
+                    config.layer.layers = parse_nll_layer_file(vel_path)
+                    self.logger.info(f"Using velocity model from {vel_path}")
+                except (ValueError, FileNotFoundError) as e:
+                    self.logger.warning(f"Could not load velocity model from {vel_path}: {e}, using default")
         config.add_station_from_inventory(inventory, sta_fmt=locator_config['station_format'])
         config.write_complete_control_file(os.path.join(nll_home, config.filename))
         self.logger.info(f"Writing NLL control file: ({os.path.join(nll_home, config.filename)})")

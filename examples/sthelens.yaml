@@ -85,6 +85,10 @@ locator:
   # Station format for NLL (STA uses station codes only)
   station_format: "STA"
   
+  # Optional: path to NonLinLoc LAYER-format 1D velocity model file (relative to cwd or absolute).
+  # If set, overrides the default in-memory volcano model. Example: wav2hyp/utils/nll_stratovolcano.txt
+  velocity_model_file: null
+  
   # Grid and velocity model settings (set in nllpy config)
   run_vel2grid: true       # Run vel2grid command (only needs to be done the first time)
   run_grid2time: true      # Run grid2time command (only needs to be done the first time)

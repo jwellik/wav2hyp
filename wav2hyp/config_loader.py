@@ -114,6 +114,10 @@ def validate_config(config):
         inventory_file = config['inventory']['file']
         if not os.path.exists(inventory_file):
             print(f"Warning: Inventory file not found: {inventory_file}")
+
+    # Optional locator velocity model file (default None = use nllpy default)
+    if 'velocity_model_file' not in config['locator']:
+        config['locator']['velocity_model_file'] = None
     
     return config
 
@@ -219,6 +223,8 @@ def print_config_summary(config, logger=None):
     locator = config['locator']
     _out(f"\nNonLinLoc Home: {locator['nll_home']}")
     _out(f"Config Name: {locator['config_name']}")
+    if locator.get('velocity_model_file'):
+        _out(f"Velocity Model File: {locator['velocity_model_file']}")
 
     _out("=" * 60)
 
