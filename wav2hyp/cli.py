@@ -12,7 +12,7 @@ from pathlib import Path
 from obspy import UTCDateTime
 
 from .core import WAV2HYP
-from .utils.summary import generate_summary_from_files
+from .utils.summary import write_summary_txt_from_hdf5, infer_step_from_hdf5
 
 
 def parse_arguments():
@@ -130,58 +130,44 @@ def validate_arguments(args, require_times=False):
 
 
 def generate_summary_command():
-    """Generate summary file from existing results."""
-    parser = argparse.ArgumentParser(description="Generate summary file from existing WAV2HYP results")
-    parser.add_argument("-c", "--config", required=True, help="Path to YAML configuration file")
-    parser.add_argument("--t1", help="Start date for summary generation (YYYY/MM/DD)")
-    parser.add_argument("--t2", help="End date for summary generation (YYYY/MM/DD)")
-    parser.add_argument("--output", help="Output summary filename")
-    
-    args = parser.parse_args()
-    
-    # Load config to get output directory and config name
-    from .config_loader import load_config
-    config = load_config(args.config)
-    
-    base_output_dir = config['output']['base_dir']
-    config_name = config['locator']['config_name']
-    
-    print(f"Generating summary for {config_name}")
-    print(f"Output directory: {base_output_dir}")
-    
-    # Parse date range if provided
-    start_date = None
-    end_date = None
-    
-    if args.t1:
-        try:
-            start_date = UTCDateTime(args.t1)
-        except Exception as e:
-            print(f"Error parsing start date: {e}")
-            sys.exit(1)
-    
-    if args.t2:
-        try:
-            end_date = UTCDateTime(args.t2)
-        except Exception as e:
-            print(f"Error parsing end date: {e}")
-            sys.exit(1)
-    
-    if start_date and end_date:
-        print(f"Date range: {start_date.strftime('%Y/%m/%d')} to {end_date.strftime('%Y/%m/%d')}")
-    else:
-        print("Processing all available dates")
-    
-    # Generate summary
-    summary_file = generate_summary_from_files(
-        base_output_dir=base_output_dir,
-        config_name=config_name,
-        summary_filename=args.output,
-        date_range=(start_date, end_date) if start_date and end_date else None
+    """Regenerate a step summary text file from an HDF5 file that has a 'summary' table."""
+    parser = argparse.ArgumentParser(
+        description="Regenerate a step summary text file from a WAV2HYP HDF5 file",
+        epilog="Example: python generate_summary.py picks/eqt-volpick.h5 sthelens_picker_summary.txt"
     )
-    
-    print(f"Summary file generated: {summary_file}")
-    return summary_file
+    parser.add_argument(
+        "hdf5_path",
+        help="Path to HDF5 file (e.g. picks/eqt-volpick.h5, associations/pyocto.h5, locations/nll.h5)"
+    )
+    parser.add_argument(
+        "output_summary_path",
+        help="Path to output summary text file (e.g. sthelens_picker_summary.txt)"
+    )
+    parser.add_argument(
+        "--step",
+        choices=["picker", "associator", "locator"],
+        default=None,
+        help="Processing step (inferred from HDF5 'summary' table if omitted)"
+    )
+    args = parser.parse_args()
+
+    hdf5_path = Path(args.hdf5_path)
+    if not hdf5_path.exists():
+        print(f"Error: HDF5 file not found: {hdf5_path}")
+        sys.exit(1)
+
+    step = args.step
+    if step is None:
+        try:
+            step = infer_step_from_hdf5(str(hdf5_path))
+            print(f"Inferred step: {step}")
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+
+    write_summary_txt_from_hdf5(str(hdf5_path), args.output_summary_path, step)
+    print(f"Summary written to {args.output_summary_path}")
+    return args.output_summary_path
 
 
 def cli_main():

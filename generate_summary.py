@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 """
-Generate summary file from existing WAV2HYP results.
+Regenerate step summary text files from WAV2HYP HDF5 results.
 
-This script provides a standalone interface for generating summary files
-from existing HDF5 results without running the full processing pipeline.
+Use this when summary text files were not enabled in the config but you want
+to produce them from existing HDF5 files (picks, associations, or locations).
 
 Usage:
-    python generate_summary.py -c config.yaml --t1 "2024/10/01" --t2 "2024/10/31"
-    python generate_summary.py -c config.yaml --output "custom_summary.txt"
+    python generate_summary.py <path_to_hdf5> <path_to_output_summary.txt>
+    python generate_summary.py picks/eqt-volpick.h5 sthelens_picker_summary.txt
+    python generate_summary.py associations/pyocto.h5 sthelens_associator_summary.txt --step associator
 """
 
 import sys

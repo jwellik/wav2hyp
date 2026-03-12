@@ -19,6 +19,47 @@ from obspy import UTCDateTime
 from .io import PickListX, DetectionListX
 
 
+def infer_step_from_hdf5(hdf5_path: str) -> str:
+    """
+    Infer processing step (picker, associator, locator) from the 'summary' table columns.
+
+    Parameters
+    ----------
+    hdf5_path : str
+        Path to the HDF5 file.
+
+    Returns
+    -------
+    str
+        One of 'picker', 'associator', 'locator'.
+
+    Raises
+    ------
+    ValueError
+        If the file has no 'summary' table or columns do not match any known step.
+    """
+    path = Path(hdf5_path)
+    if not path.exists():
+        raise FileNotFoundError(f"HDF5 file not found: {hdf5_path}")
+    try:
+        df = pd.read_hdf(hdf5_path, key='summary')
+    except (KeyError, FileNotFoundError) as e:
+        raise ValueError(f"HDF5 file has no 'summary' table or could not be read: {e}") from e
+    if df is None or len(df) == 0:
+        raise ValueError("HDF5 'summary' table is empty")
+    cols = set(df.columns)
+    if 't_exec_pick' in cols or 't_updated_pick' in cols:
+        return 'picker'
+    if 't_exec_assoc' in cols or 't_updated_assoc' in cols:
+        return 'associator'
+    if 't_exec_loc' in cols or 't_update_loc' in cols:
+        return 'locator'
+    raise ValueError(
+        "Could not infer step from HDF5 'summary' columns. "
+        "Use --step picker|associator|locator to specify."
+    )
+
+
 def write_summary_txt_from_hdf5(hdf5_path: str, summary_txt_path: str, step: str) -> None:
     """
     Read the 'summary' table from an HDF5 file and write it to a CSV summary text file.
@@ -348,65 +389,3 @@ class SummaryExporter:
         entry['t_exec_loc'] = timing
 
 
-def generate_summary_from_files(base_output_dir: str, config_name: str, 
-                                summary_filename: Optional[str] = None,
-                                date_range: Optional[tuple] = None) -> str:
-    """
-    Generate summary file retrospectively from existing HDF5 files.
-    
-    Parameters
-    ----------
-    base_output_dir : str
-        Base output directory containing results
-    config_name : str
-        Configuration name
-    summary_filename : str, optional
-        Custom summary filename. If None, uses {config_name}_qc_summary.txt
-    date_range : tuple, optional
-        (start_date, end_date) as UTCDateTime objects
-        
-    Returns
-    -------
-    str
-        Path to generated summary file
-    """
-    from .io import EQTOutput, PyOctoOutput, NLLOutput
-    from obspy import UTCDateTime
-    import glob
-    
-    if summary_filename is None:
-        summary_filename = f"{config_name}_qc_summary.txt"
-    
-    summary_file = Path(base_output_dir) / summary_filename
-    
-    # Initialize exporter
-    exporter = SummaryExporter(base_output_dir, config_name, summary_filename)
-    
-    # Get all available dates from HDF5 files
-    picker_file = Path(base_output_dir) / "picks" / "eqt-volpick.h5"
-    associator_file = Path(base_output_dir) / "associations" / "pyocto.h5"
-    locator_file = Path(base_output_dir) / "locations" / "nll.h5"
-    
-    # Find all available dates by scanning the files
-    dates = set()
-    
-    # Scan picker file for available time ranges
-    if picker_file.exists():
-        try:
-            eqt_output = EQTOutput(str(picker_file))
-            # Get all available time ranges from the HDF5 file
-            # This is a simplified approach - in practice, you'd need to implement
-            # a method to get all time ranges from the HDF5 file
-            print(f"Found picker file: {picker_file}")
-        except Exception as e:
-            print(f"Warning: Could not read picker file {picker_file}: {e}")
-    
-    # For now, let's implement a simple approach that processes common date patterns
-    # This is a placeholder - the real implementation would need to scan the HDF5 files
-    # to find all available time ranges
-    
-    print("Note: Retrospective generation is a placeholder implementation.")
-    print("The real implementation would need to scan HDF5 files for available time ranges.")
-    print("For now, this creates an empty summary file with just the header.")
-    
-    return str(summary_file)
