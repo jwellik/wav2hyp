@@ -21,7 +21,7 @@ When you omit a step (e.g. you run only `-a -l` without `-p`), the pipeline read
 **Outputs**
 
 - **File:** `results/<target>/picks/eqt-volpick.h5`  
-  Contains: `picks`, `detections`, `summary`, `pick_peak_histogram` (see [Data structures](data-structures.md)).
+  Contains: `picks`, `detections`, `summary`, `pick_peak_histogram` (per-station peak_value histograms; see [Data structures](data-structures.md)).
 - **In-memory:** `PickListX` (picks), `Stream` (optional), `DetectionListX` (detections)
 
 ---
@@ -49,11 +49,12 @@ When you omit a step (e.g. you run only `-a -l` without `-p`), the pipeline read
 
 - **Catalog** from the associator step (events + assignments)
 - Station **inventory**
-- Config: locator section (`nll_home`, `config_name`, station_format, optional `velocity_model_file`, `run_vel2grid` / `run_grid2time`)
+- Config: locator section (`nll_home`, `config_name`, station_format, optional `velocity_model_file`)
 
 **Data in**
 
-- NLL observation files under `nll_home`, NLL control file, and grid/time runs (vel2grid, grid2time, NLLoc). If `velocity_model_file` is set in the locator config, it must be a path to a NonLinLoc LAYER-format 1D velocity model file; that file is read and its layers are passed to NLLpy so the generated control file uses your model instead of the default.
+- NLL observation files under `nll_home`, NLL control file, and grid/time runs (Vel2Grid, Grid2Time, NLLoc). If `velocity_model_file` is set in the locator config, it must be a path to a NonLinLoc LAYER-format 1D velocity model file; that file is read and its layers are passed to NLLpy so the generated control file uses your model instead of the default.
+- `wav2hyp` always requests that NLLPy run its grid steps (Vel2Grid, Grid2Time) as part of location, and will also pass the global `--overwrite` flag to NLLPy **when the installed NLLPy version exposes an `overwrite` parameter on `run_nlloc`**. In older NLLPy versions, `overwrite` only affects wav2hyp’s own output files, while grid reuse/recomputation behavior is handled internally by NLLPy/NonLinLoc.
 
 **Outputs**
 

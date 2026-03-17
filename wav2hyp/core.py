@@ -653,12 +653,26 @@ class WAV2HYP:
         self.logger.info(f"Writing NLL control file: ({os.path.join(nll_home, config.filename)})")
 
 
-        # Run NonLinLoc
+        # Run NonLinLoc.
+        # Always call NLLPy's run_nlloc with its standard grid flags, and
+        # conditionally pass the global wav2hyp `overwrite` flag if the
+        # installed NLLPy version supports it.
+        import inspect
         nll_run_start = time.perf_counter()
-        config.run_nlloc(
-            vel2grid=locator_config.get('run_vel2grid', True),
-            grid2time=locator_config.get('run_grid2time', True)
-        )
+
+        run_nlloc_kwargs = {
+            "vel2grid": True,
+            "grid2time": True,
+        }
+        try:
+            sig = inspect.signature(config.run_nlloc)
+            if "overwrite" in sig.parameters:
+                run_nlloc_kwargs["overwrite"] = overwrite
+        except (TypeError, ValueError):
+            # Fallback: call without overwrite for older NLLPy versions
+            pass
+
+        config.run_nlloc(**run_nlloc_kwargs)
         nll_run_time = time.perf_counter() - nll_run_start
         self.logger.info(f"NonLinLoc execution time: {nll_run_time:.2f}s ({nll_run_time/60:2.1f} minutes)")
 

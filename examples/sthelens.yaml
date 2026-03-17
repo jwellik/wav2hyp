@@ -11,9 +11,9 @@ target:
 # Times of Interest
 # 2004/09/23–2004/09/24  # default REDPy backfill dates
   
-# # Waveform Client
-# waveform_client:
-#   datasource: "IRIS"  # FDSN data center (auto-detected by VClient)
+# Waveform Client
+waveform_client:
+  datasource: "IRIS"  # FDSN data center (auto-detected by VClient)
 
 # Waveform Client - Alternatives
 # # Earthworm
@@ -22,10 +22,9 @@ target:
 #   client_type: "earthworm"     # Explicitly specify client type
 #   port: 16024                  # Earthworm server port
 
-# SDS filesystem
-waveform_client:
-  # datasource: "/path/to/sds/data"  # Path to SDS directory structure (auto-detected by VClient)
-  datasource: "/VDAP-NAS/jwellik/DATA/CVO/MSH2004_SDS"  # Path to SDS directory structure (auto-detected by VClient)
+# # SDS filesystem
+# waveform_client:
+#   # datasource: "/path/to/sds/"  # Path to SDS directory structure (auto-detected by VClient)
     
 # Station Inventory
 inventory:
@@ -44,7 +43,7 @@ output:
   associator_summary: "sthelens_associator_summary.txt"
   locator_summary: "sthelens_locator_summary.txt"
   # Per-channel summary: set to filename (e.g. "station_summary.txt") to enable; null or omit to disable
-  station_summary: "station_summary.txt"
+  station_summary: "sthelens_station_summary.txt"
   # Per-day config snapshot: set to a subdir name (e.g. "config_snapshots") to enable; false or omit to disable
   config_snapshot_dir: "config_snapshots"
 
@@ -88,10 +87,10 @@ locator:
   # Optional: path to NonLinLoc LAYER-format 1D velocity model file (relative to cwd or absolute).
   # If set, overrides the default in-memory volcano model. Example: wav2hyp/utils/nll_stratovolcano.txt
   velocity_model_file: null
+  # velocity_model_file: "./utils/nll_stratovolcano.txt"
   
-  # Grid and velocity model settings (set in nllpy config)
-  run_vel2grid: true       # Run vel2grid command (only needs to be done the first time)
-  run_grid2time: true      # Run grid2time command (only needs to be done the first time)
+  # Grid and velocity model settings are controlled internally by NLLPy;
+  # wav2hyp only passes the global `--overwrite` flag through.
   
 # File Format Settings
 file_formats:
@@ -120,7 +119,7 @@ metadata:
   # Additional attributes to store with results
   processing_version: "2.0"
   author: "WAV2HYP Pipeline"
-  institution: "Volcano Observatory"
+  institution: "Volcano Disaster Assistance Program"
   
   # Data provenance tracking
   track_processing_time: true

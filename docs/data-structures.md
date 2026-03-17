@@ -14,12 +14,14 @@ WAV2HYP stores results in HDF5 (picker and associator) and ASDF (locator). This 
 
 **Keys**
 
-| Key                   | Description                                                       |
-| --------------------- | ----------------------------------------------------------------- |
-| `picks`               | Phase picks (P and S) from EQTransformer                          |
-| `detections`          | Detection windows (no phase label)                                |
-| `summary`             | One row per processing day (counts, thresholds, timing)           |
-| `pick_peak_histogram` | Daily histogram of peak_value bins per station and phase (P, S, D)|
+
+| Key                   | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `picks`               | Phase picks (P and S) from EQTransformer                           |
+| `detections`          | Detection windows (no phase label)                                 |
+| `summary`             | One row per processing day (counts, thresholds, timing)            |
+| `pick_peak_histogram` | Daily histogram of peak_value bins per station and phase (P, S, D) |
+
 
 **Columns** (bold = indexed data_column)
 
@@ -70,9 +72,9 @@ from wav2hyp.utils.io import EQTOutput
 
 eqt = EQTOutput("results/sthelens/picks/eqt-volpick.h5")
 picks, detections, metadata = eqt.read()                                    # full file
-picks, detections, metadata = eqt.read(t1="2004-09-23", t2="2004-09-25")   # time window
+picks, detections, metadata = eqt.read(t1="2004-09-23", t2="2004-09-25")    # time window
 picks, detections, metadata = eqt.read(min_peak_value=0.6)                  # confidence >= 0.6
-picks, detections, metadata = eqt.read(is_associated=True)                 # only associated picks
+picks, detections, metadata = eqt.read(is_associated=True)                  # only associated picks
 picks, detections, metadata = eqt.read(t1="2004-09-23", t2="2004-09-25", min_peak_value=0.6, is_associated=True)
 ```
 
@@ -132,11 +134,13 @@ picks_subset = pd.read_hdf(path, key='picks', where=where)
 
 **Keys**
 
-| Key           | Description                                                                 |
-| ------------- | --------------------------------------------------------------------------- |
+
+| Key           | Description                                                                |
+| ------------- | -------------------------------------------------------------------------- |
 | `events`      | Associated events (origin time, location, pick counts, residual)           |
-| `assignments` | Pick-to-event assignments (event_idx, station_id, phase, residual, weight)  |
+| `assignments` | Pick-to-event assignments (event_idx, station_id, phase, residual, weight) |
 | `summary`     | One row per processing day (nassignments, nevents, timing)                 |
+
 
 **Columns**
 
@@ -194,12 +198,14 @@ assignments_df = pd.read_hdf(path, key='assignments')
 
 **Keys / content**
 
-| Key / content       | Description                                                                 |
-| ------------------- | --------------------------------------------------------------------------- |
-| (ASDF) `events`     | Full QuakeML catalog (PyASDF/ObsPy)                                         |
-| (group) `metadata`  | Attributes: method, nll_home, target, event_date, nll_directory, last_updated |
-| `summary`           | One row per processing day (nlocations, timing)                            |
-| `catalog_table`     | One row per located event; pandas table with indexed columns for fast query |
+
+| Key / content      | Description                                                                   |
+| ------------------ | ----------------------------------------------------------------------------- |
+| (ASDF) `events`    | Full QuakeML catalog (PyASDF/ObsPy)                                           |
+| (group) `metadata` | Attributes: method, nll_home, target, event_date, nll_directory, last_updated |
+| `summary`          | One row per processing day (nlocations, timing)                               |
+| `catalog_table`    | One row per located event; pandas table with indexed columns for fast query   |
+
 
 **Indexed data_columns (queryable with `where=`):** On `catalog_table` only: **event_id**, **origin_time**, **mag**, **residual_rms**, **azimuthal_gap**. The underlying QuakeML catalog is accessed via PyASDF/ObsPy.
 

@@ -17,6 +17,7 @@ import pandas as pd
 from obspy import UTCDateTime
 
 from .io import PickListX, DetectionListX
+from .stations import station_from_trace_id
 
 
 def infer_step_from_hdf5(hdf5_path: str) -> str:
@@ -154,7 +155,7 @@ def append_station_summary_rows(
     # Build rows: one per channel_id
     rows = []
     for ch_id in channel_ids:
-        sta = '.'.join(ch_id.split('.')[:2]) if len(ch_id.split('.')) >= 2 else ch_id
+        sta = station_from_trace_id(ch_id)
         rows.append({
             'date': date_str,
             'channel_id': ch_id,

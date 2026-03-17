@@ -478,20 +478,53 @@ class EQTOutput:
             if 'summary' in store:
                 del store['summary']
             store.append('summary', summary_df, format='table')
-        # Histogram: peak_value binned to 2 decimals, per phase (P, S, D)
-        hist_rows = []
-        for phase, df in [('P', picks_df[picks_df['phase'] == 'P'] if len(picks_df) and 'phase' in picks_df.columns else pd.DataFrame()),
-                          ('S', picks_df[picks_df['phase'] == 'S'] if len(picks_df) and 'phase' in picks_df.columns else pd.DataFrame()),
-                          ('D', detections_df if len(detections_df) and 'peak_value' in detections_df.columns else pd.DataFrame())]:
-            if df is None or len(df) == 0 or 'peak_value' not in df.columns:
-                continue
-            pv = df['peak_value'].round(2)
-            for bin_val, count in pv.value_counts().items():
-                hist_rows.append({'date': date_str, 'phase': phase, 'peak_value_bin': float(bin_val), 'count': int(count)})
-        if not hist_rows:
-            new_hist_df = pd.DataFrame(columns=['date', 'phase', 'peak_value_bin', 'count'])
+        # Histogram: peak_value binned to 2 decimals, per station and phase (P, S, D)
+        from .stations import station_from_trace_id
+
+        hist_frames = []
+
+        # Picks: P and S phases
+        if len(picks_df) and 'peak_value' in picks_df.columns and 'trace_id' in picks_df.columns:
+            picks_tmp = picks_df.copy()
+            if 'phase' in picks_tmp.columns:
+                picks_tmp = picks_tmp[picks_tmp['phase'].isin(['P', 'S'])]
+            if len(picks_tmp):
+                picks_tmp = picks_tmp.copy()
+                picks_tmp['station_id'] = picks_tmp['trace_id'].astype(str).apply(station_from_trace_id)
+                picks_tmp['peak_value_bin'] = picks_tmp['peak_value'].round(2)
+                picks_tmp = picks_tmp.dropna(subset=['peak_value_bin'])
+                if len(picks_tmp):
+                    picks_hist = (
+                        picks_tmp
+                        .groupby(['station_id', 'phase', 'peak_value_bin'])
+                        .size()
+                        .reset_index(name='count')
+                    )
+                    picks_hist['date'] = date_str
+                    hist_frames.append(picks_hist)
+
+        # Detections: treated as phase 'D'
+        if len(detections_df) and 'peak_value' in detections_df.columns and 'trace_id' in detections_df.columns:
+            det_tmp = detections_df.copy()
+            det_tmp['station_id'] = det_tmp['trace_id'].astype(str).apply(station_from_trace_id)
+            det_tmp['peak_value_bin'] = det_tmp['peak_value'].round(2)
+            det_tmp = det_tmp.dropna(subset=['peak_value_bin'])
+            if len(det_tmp):
+                det_hist = (
+                    det_tmp
+                    .groupby(['station_id', 'peak_value_bin'])
+                    .size()
+                    .reset_index(name='count')
+                )
+                det_hist['phase'] = 'D'
+                det_hist['date'] = date_str
+                hist_frames.append(det_hist)
+
+        if hist_frames:
+            new_hist_df = pd.concat(hist_frames, ignore_index=True)
+            new_hist_df = new_hist_df[['date', 'station_id', 'phase', 'peak_value_bin', 'count']]
         else:
-            new_hist_df = pd.DataFrame(hist_rows)
+            new_hist_df = pd.DataFrame(columns=['date', 'station_id', 'phase', 'peak_value_bin', 'count'])
         if existing_hist_df is not None:
             existing_hist = existing_hist_df[existing_hist_df['date'].astype(str) != str(date_str)]
             hist_df = pd.concat([existing_hist, new_hist_df], ignore_index=True)
@@ -571,12 +604,33 @@ class EQTOutput:
               f"Keeping {len(picks_filtered)} picks and {len(detections_filtered)} detections outside time range.")
         return picks_filtered, detections_filtered
 
-    def read(self, t1=None, t2=None):
+    def _append_peak_value_where(self, where_expr, min_peak_value):
+        """Append (peak_value >= min_peak_value) to a where expression. peak_value is an indexed data_column."""
+        if min_peak_value is None:
+            return where_expr
+        pv_cond = f"(peak_value >= {float(min_peak_value)})"
+        if where_expr is None:
+            return pv_cond
+        return f"({where_expr}) & {pv_cond}"
+
+    def _append_is_associated_where(self, where_expr, is_associated):
+        """Append (is_associated == 1) or (is_associated == 0) to a where expression. Picks table only; is_associated is an indexed data_column."""
+        if is_associated is None:
+            return where_expr
+        # PyTables stores bool as 0/1
+        val = 1 if is_associated else 0
+        cond = f"(is_associated == {val})"
+        if where_expr is None:
+            return cond
+        return f"({where_expr}) & {cond}"
+
+    def read(self, t1=None, t2=None, min_peak_value=None, is_associated=None):
         """
-        Read EQTransformer results from HDF5 file with optional time filtering.
+        Read EQTransformer results from HDF5 file with optional time, confidence, and association filtering.
         
-        Uses where= on peak_time (picks) and start_time (detections) when t1/t2
-        are provided, so only rows in the time window are loaded.
+        Uses where= on indexed columns: peak_time (picks), start_time (detections),
+        peak_value (both), and is_associated (picks only) when the corresponding
+        arguments are provided, so only matching rows are loaded from disk.
         
         Parameters
         ----------
@@ -584,6 +638,13 @@ class EQTOutput:
             Start time for filtering results
         t2 : UTCDateTime or str, optional
             End time for filtering results
+        min_peak_value : float, optional
+            Minimum peak_value (confidence) to include; 0.0-1.0. Uses indexed
+            data_column for efficient filtering.
+        is_associated : bool, optional
+            If True, return only picks that have been associated to an event.
+            If False, return only picks not yet associated. None (default) means
+            no filter. Uses indexed data_column (picks table only; detections are unchanged).
             
         Returns
         -------
@@ -595,11 +656,16 @@ class EQTOutput:
         Notes
         -----
         Time filtering is applied to peak_time for picks and start_time for detections.
+        When min_peak_value is set, peak_value is used in the where= clause (indexed).
+        When is_associated is True or False, is_associated is used in the where= clause for picks (indexed).
         Prints summary statistics of loaded data.
         """
         print(f"Reading EQT output from {self.output_path}")
         where_picks = self._where_time_bounds('peak_time', t1, t2)
         where_detections = self._where_time_bounds('start_time', t1, t2)
+        where_picks = self._append_peak_value_where(where_picks, min_peak_value)
+        where_detections = self._append_peak_value_where(where_detections, min_peak_value)
+        where_picks = self._append_is_associated_where(where_picks, is_associated)
 
         try:
             if where_picks is not None:
@@ -611,6 +677,13 @@ class EQTOutput:
                         picks_df = picks_df[picks_df['peak_time'] >= pd.Timestamp(UTCDateTime(t1).datetime)]
                     if t2 is not None:
                         picks_df = picks_df[picks_df['peak_time'] <= pd.Timestamp(UTCDateTime(t2).datetime)]
+                    if min_peak_value is not None:
+                        picks_df = picks_df[picks_df['peak_value'] >= min_peak_value]
+                    if is_associated is not None:
+                        if 'is_associated' in picks_df.columns:
+                            picks_df = picks_df[picks_df['is_associated'] == is_associated]
+                        else:
+                            picks_df = picks_df.iloc[0:0]
             else:
                 picks_df = pd.read_hdf(self.output_path, key='picks')
             if where_detections is not None:
@@ -622,6 +695,8 @@ class EQTOutput:
                         detections_df = detections_df[detections_df['start_time'] >= pd.Timestamp(UTCDateTime(t1).datetime)]
                     if t2 is not None:
                         detections_df = detections_df[detections_df['start_time'] <= pd.Timestamp(UTCDateTime(t2).datetime)]
+                    if min_peak_value is not None:
+                        detections_df = detections_df[detections_df['peak_value'] >= min_peak_value]
             else:
                 detections_df = pd.read_hdf(self.output_path, key='detections')
         except (KeyError, FileNotFoundError) as e:
@@ -630,6 +705,10 @@ class EQTOutput:
 
         if t1 is not None or t2 is not None:
             print(f"Time filtered from {t1} to {t2}")
+        if min_peak_value is not None:
+            print(f"Peak value filter: >= {min_peak_value}")
+        if is_associated is not None:
+            print(f"Association filter: is_associated == {is_associated}")
 
         # Backward compatibility: ensure is_associated column exists (old files may not have it)
         if 'is_associated' not in picks_df.columns:
@@ -679,9 +758,7 @@ class EQTOutput:
             return
 
         # Build set of (station_id, phase, pick_time_rounded) from assignments
-        def station_from_trace(trace_id):
-            parts = trace_id.split('.')
-            return '.'.join(parts[:2]) if len(parts) >= 2 else trace_id
+        from .stations import station_from_trace_id
 
         tol_s = 0.05
         associated_set = set()
@@ -701,7 +778,7 @@ class EQTOutput:
         for _, row in picks_in.iterrows():
             pt = pd.Timestamp(row['peak_time'])
             unix = pt.value / 1e9
-            key = (station_from_trace(row['trace_id']), str(row['phase']).strip(), round(unix / tol_s) * tol_s)
+            key = (station_from_trace_id(row['trace_id']), str(row['phase']).strip(), round(unix / tol_s) * tol_s)
             is_assoc.append(key in associated_set)
         picks_in['is_associated'] = is_assoc
 
@@ -1117,12 +1194,24 @@ class NLLOutput:
         print(f"Writing NonLinLoc output to {self.output_path}")
 
         existing_summary_df = None
+        corrupt_file = False
         if summary_stats is not None and self.time_range is not None and os.path.exists(self.output_path):
             try:
                 existing_summary_df = pd.read_hdf(self.output_path, key='summary')
             except (KeyError, FileNotFoundError):
                 pass
-        
+            except Exception as e:
+                # Corrupt or truncated HDF5 (e.g. from interrupted write)
+                existing_summary_df = None
+                corrupt_file = True
+                print(f"WARNING: Could not read existing locator file (corrupt or truncated): {e}")
+        if corrupt_file and os.path.exists(self.output_path):
+            try:
+                os.remove(self.output_path)
+                print(f"Removed corrupt file {self.output_path}; writing fresh file.")
+            except OSError:
+                pass
+
         # Handle time-based data replacement
         if self.time_range is not None and os.path.exists(self.output_path):
             # Read existing data and filter out the time range
@@ -1146,8 +1235,7 @@ class NLLOutput:
         try:
             import pyasdf
             import tempfile
-            import pandas as pd
-            
+
             # Determine if we need to overwrite (when combining catalogs) or append
             file_mode = 'w' if (self.time_range is not None and os.path.exists(self.output_path)) else 'a'
             
