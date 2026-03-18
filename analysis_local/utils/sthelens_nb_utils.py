@@ -12,16 +12,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional, Sequence
-import io
 
 import h5py
 import yaml
 import pandas as pd
-from obspy import UTCDateTime, read_events
+from obspy import UTCDateTime
 from obspy.clients.filesystem.sds import Client as SDSClient
 
 from vdapseisutils import VCatalog
-_NLL_CATALOG_CACHE: dict[Path, object] = {}
 
 
 def load_yaml(path: str | Path) -> dict:
@@ -217,7 +215,7 @@ def detections_intervals_for_station(
     return intervals
 
 
-def located_pick_times_from_nll_quakeml(
+def located_pick_times_from_nll(
     nll_h5_path: str | Path,
     station: str,
     phase: str,
@@ -225,57 +223,71 @@ def located_pick_times_from_nll_quakeml(
     t2: Optional[str | UTCDateTime] = None,
 ) -> list[UTCDateTime]:
     """
-    Extract located pick times for a given station + phase from NLL `QuakeML`.
+    Extract located pick times for a given station + phase from NLL arrivals_table.
 
-    This is the simplest interpretation of:
-    - "located picks" = picks present in the NonLinLoc located QuakeML.
+    Reads only the HDF5 arrivals_table (no QuakeML). Raises if the file or
+    arrivals_table is missing.
     """
     nll_h5_path = Path(nll_h5_path)
+    if not nll_h5_path.exists():
+        raise FileNotFoundError(f"nll.h5 not found: {nll_h5_path}")
     if t1 is not None:
         t1 = UTCDateTime(t1)
     if t2 is not None:
         t2 = UTCDateTime(t2)
 
-    nll_h5_path = nll_h5_path.resolve()
-    if nll_h5_path not in _NLL_CATALOG_CACHE:
-        with h5py.File(nll_h5_path, "r") as f:
-            qbytes_arr = f["QuakeML"][()]
-            qbytes = qbytes_arr.tobytes()
+    phase_u = str(phase).strip().upper()
+    if phase_u.startswith("P"):
+        phase_u = "P"
+    elif phase_u.startswith("S"):
+        phase_u = "S"
 
-        buf = io.BytesIO(qbytes)
-        _NLL_CATALOG_CACHE[nll_h5_path] = read_events(buf)
+    def _iso_time(t: UTCDateTime) -> str:
+        return pd.Timestamp(t.datetime, tz="UTC").isoformat()
 
-    cat = _NLL_CATALOG_CACHE[nll_h5_path]
+    where_parts = []
+    if t1 is not None and t2 is not None:
+        where_parts.append(
+            f"(arrival_time >= '{_iso_time(t1)}') & (arrival_time <= '{_iso_time(t2)}')"
+        )
+    elif t1 is not None:
+        where_parts.append(f"(arrival_time >= '{_iso_time(t1)}')")
+    elif t2 is not None:
+        where_parts.append(f"(arrival_time <= '{_iso_time(t2)}')")
 
-    out: list[UTCDateTime] = []
-    for ev in cat:
-        for pick in getattr(ev, "picks", None) or []:
-            ph = getattr(pick, "phase_hint", None)
-            if ph != phase:
-                continue
-            wid = getattr(pick, "waveform_id", None)
-            if wid is None:
-                continue
-            # Most robust way without relying on channel/loc presence:
-            seed = wid.get_seed_string()
-            parts = seed.split(".")
-            sta = parts[1] if len(parts) >= 2 else None
-            if sta != station:
-                continue
+    where_phase = f"(phase == '{phase_u}')"
+    where = f"{where_phase}" if not where_parts else f"({' & '.join(where_parts)}) & {where_phase}"
 
-            pt = getattr(pick, "time", None)
-            if pt is None:
-                continue
-            pt = UTCDateTime(pt)
-            if t1 is not None and pt < t1:
-                continue
-            if t2 is not None and pt > t2:
-                continue
-            out.append(pt)
+    try:
+        df = pd.read_hdf(nll_h5_path, key="arrivals_table", where=where)
+    except KeyError:
+        raise KeyError(f"arrivals_table not found in {nll_h5_path}") from None
 
-    # Stable ordering for plotting
-    out.sort()
-    return out
+    if len(df) == 0:
+        return []
+
+    if "trace_id" in df.columns:
+        sta_codes = df["trace_id"].astype(str).str.split(".").str[1]
+        mask = sta_codes == station
+    elif "station_id" in df.columns:
+        sta_codes = df["station_id"].astype(str).str.split(".").str[1]
+        mask = sta_codes == station
+    else:
+        mask = pd.Series([False] * len(df))
+
+    out_times: list[UTCDateTime] = []
+    for ts in df.loc[mask, "arrival_time"].values:
+        if hasattr(ts, "to_pydatetime"):
+            out_times.append(UTCDateTime(ts.to_pydatetime()))
+        else:
+            out_times.append(UTCDateTime(ts))
+
+    out_times.sort()
+    return out_times
+
+
+# Backward-compat alias (nll.h5 is now table-only; no QuakeML)
+located_pick_times_from_nll_quakeml = located_pick_times_from_nll
 
 
 def load_hr_stream_from_sds(

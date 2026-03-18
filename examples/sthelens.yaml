@@ -50,9 +50,9 @@ output:
 # Phase Picker Settings (EQTransformer)
 picker:
   model: "volpick"   # Pre-trained model optimized for volcanic seismicity
-  p_threshold: 0.20  # P-wave detection threshold
-  s_threshold: 0.20  # S-wave detection threshold
-  d_threshold: 0.20  # Detection threshold
+  p_threshold: 0.10  # P-wave detection threshold
+  s_threshold: 0.10  # S-wave detection threshold
+  d_threshold: 0.10  # Detection threshold
   use_cuda: true     # Use GPU acceleration if available
   
 # Event Association Settings (PyOcto)
