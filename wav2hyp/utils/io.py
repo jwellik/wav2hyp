@@ -1174,54 +1174,39 @@ class PyOctoOutput:
 class NLLOutput:
     """
     Handles input/output operations for NonLinLoc earthquake location results.
-    
-    This class manages the storage and retrieval of earthquake catalogs generated
-    by NonLinLoc. Data is stored in ASDF format (preferred) or XML/JSON format
-    (fallback) with automatic time-based data cleanup capabilities.
-    
+
+    Storage is HDF5-only: no ASDF QuakeML blob, no sidecar XML/JSON. The file contains
+    a ``metadata`` group (attrs), optional ``summary`` table, ``catalog_table``, and
+    ``arrivals_table``. read() builds ObsPy Event/Origin (and Picks/Arrivals when
+    requested) from these tables.
+
     Parameters
     ----------
     output_path : str
-        Path to the ASDF (.h5) output file
+        Path to the HDF5 (.h5) output file
     time_range : tuple of (UTCDateTime, UTCDateTime), optional
-        Time range (t1, t2) for automatic cleanup of existing data when writing
-        
+        Time range (t1, t2) for merging: when writing, existing rows inside this
+        range are replaced; rows outside are kept.
+
     Attributes
     ----------
     output_path : str
-        Path to the ASDF file
+        Path to the HDF5 file
     time_range : tuple or None
-        Time range for data cleanup operations
-        
+        Time range for write merge
+
     Methods
     -------
-    write(catalog, metadata) : Write earthquake catalog to file
-    read(t1=None, t2=None) : Read earthquake catalog from file with optional time filtering
-    
-    File Format
-    -----------
-    **Primary format: ASDF (HDF5-based)**
-    - QuakeML events stored as ASDF events
-    - Processing metadata stored in HDF5 attributes under 'metadata' group
-    
-    **Fallback format: XML + JSON**
-    - QuakeML events in separate .xml file
-    - Processing metadata in separate .json file
-    
-    **Earthquake catalog contains standard QuakeML/ObsPy Event objects with:**
-    - Origins: Event time, location (lat/lon/depth), uncertainties
-    - Magnitudes: Magnitude values and types
-    - Picks: Phase arrival times and uncertainties  
-    - Arrivals: Travel time residuals and weights
-    - Station information and phase associations
-    
-    **Metadata attributes include:**
-    - method (str): "NONLINLOC" 
-    - nll_home (str): NonLinLoc installation directory
-    - target (tuple): Target volcano coordinates (lat, lon, elevation)
-    - event_date (str): Processing date
-    - nll_directory (str): Output directory path
-    - last_updated (str): Timestamp of last write operation
+    write(catalog, metadata) : Write catalog to HDF5 (metadata, catalog_table, arrivals_table)
+    read(t1=None, t2=None, include_arrivals=False) : Read catalog from tables
+    read_catalog_table(t1=None, t2=None, where=None) : Read catalog_table as DataFrame
+
+    File contents (HDF5)
+    -------------------
+    - metadata : group attrs (method, nll_home, target, event_date, nll_directory, last_updated)
+    - summary : optional table (date, config, loc_method, nlocations, t_exec_loc, t_update_loc)
+    - catalog_table : event-level table (event_id, origin_time, lat/lon/depth, mag, ...)
+    - arrivals_table : arrival-level table (event_id, trace_id, phase, arrival_time, ...)
     """
     
     def __init__(self, output_path, time_range=None):
@@ -2237,94 +2222,6 @@ class NLLOutput:
                 del store['summary']
             store.append('summary', summary_df, format='table')
 
-    def _get_filtered_existing_catalog(self, t1, t2):
-        """
-        Get existing catalog filtered to exclude the specified time range.
-        
-        This private method returns existing events outside the specified time range,
-        allowing new events to replace only the events within the time range.
-        
-        Parameters
-        ----------
-        t1 : UTCDateTime or str
-            Start time for event removal
-        t2 : UTCDateTime or str
-            End time for event removal
-            
-        Returns
-        -------
-        VCatalog or None
-            Filtered earthquake catalog excluding the time range, or None if no existing data
-            
-        Notes
-        -----
-        Handles both ASDF and XML fallback formats. Uses manual time filtering
-        to avoid VCatalog filter issues with None values.
-        """
-        print(f"Filtering existing NLL catalog to exclude {t1} to {t2}")
-        
-        # Convert time parameters if needed
-        from obspy import UTCDateTime
-        if isinstance(t1, str):
-            t1 = UTCDateTime(t1)
-        if isinstance(t2, str):
-            t2 = UTCDateTime(t2)
-        
-        try:
-            import pyasdf
-            
-            # Read existing catalog from ASDF
-            with pyasdf.ASDFDataSet(self.output_path, mode='r') as ds:
-                existing_catalog = ds.events
-                
-        except (ImportError, Exception):
-            # Fallback to XML file
-            xml_path = self.output_path.replace('.h5', '.xml')
-            
-            if os.path.exists(xml_path):
-                from obspy import read_events
-                existing_catalog = read_events(xml_path)
-            else:
-                print("No existing catalog found")
-                return None
-        
-        if existing_catalog is None or len(existing_catalog) == 0:
-            print("No existing events found")
-            return None
-            
-        # Convert to VCatalog for easier handling
-        from vdapseisutils import VCatalog
-        vcatalog = VCatalog(existing_catalog)
-        
-        # Manually filter events to keep only those OUTSIDE the time range
-        filtered_events = []
-        removed_events = []
-        for event in vcatalog:
-            if event.origins:
-                event_time = event.origins[0].time
-                # Keep events that are before t1 OR after t2
-                if event_time < t1 or event_time > t2:
-                    filtered_events.append(event)
-                else:
-                    removed_events.append(event)
-        
-        # Report counts
-        events_removed = len(removed_events)
-        events_kept = len(filtered_events)
-        print(f"Removing {events_removed} events within time range. "
-              f"Keeping {events_kept} existing events outside time range.")
-        
-        if len(filtered_events) > 0:
-            from obspy import Catalog
-            filtered_obspy_catalog = Catalog(filtered_events)
-            # Ensure comments attribute is properly initialized
-            if not hasattr(filtered_obspy_catalog, 'comments') or filtered_obspy_catalog.comments is None:
-                filtered_obspy_catalog.comments = []
-            filtered_catalog = VCatalog(filtered_obspy_catalog)
-            return filtered_catalog
-        else:
-            return None
-
     def read_catalog_table(self, t1=None, t2=None, where=None) -> pd.DataFrame:
         """
         Read catalog_table from HDF5 with optional time bounds and extra where expression.
@@ -2435,32 +2332,28 @@ class NLLOutput:
         format: str = "quakeml",
         include_arrivals: bool = False,
         export_path=None,
-        include_arrivals_in_asdf=None,
     ):
         """
         Export the located catalog to an ObsPy-supported format.
 
-        This is a *bulk export* (one file containing all events), suitable for
-        later ingestion by ObsPy or other tooling.
+        Reads catalog from tables via read(), then writes to the requested format
+        (e.g. QUAKEML). If include_arrivals is False, Origin.arrivals are stripped
+        before export to keep the file small.
 
         Parameters
         ----------
         format : str
             ObsPy output format (e.g. ``'quakeml'``).
         include_arrivals : bool
-            If False, clears ``Origin.arrivals`` before export (default) so the
-            exported XML stays small.
+            If False, clears ``Origin.arrivals`` before export (default).
         export_path : str, optional
-            Output path. If omitted, derives it from ``self.output_path``.
+            Output path. If omitted, derives from ``self.output_path``.
 
         Returns
         -------
         str
             The export path.
         """
-        # Backwards-compatibility: ignore `include_arrivals_in_asdf` if passed.
-        _ = include_arrivals_in_asdf
-
         catalog, _ = self.read(include_arrivals=include_arrivals)
         if catalog is None:
             raise FileNotFoundError(f"No catalog found in {self.output_path}")
