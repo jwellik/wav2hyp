@@ -1857,31 +1857,27 @@ class NLLOutput:
             complib="blosc",
         )
 
-    def write(self, catalog, metadata, summary_stats=None, include_arrivals_in_asdf: bool = False):
+    def write(self, catalog, metadata, summary_stats=None):
         """
-        Write earthquake catalog to ASDF file with XML fallback.
-        
-        Automatically cleans existing data within the specified time range before
-        writing new data. Optionally appends one row to the 'summary' table (HDF5 only).
-        
+        Write earthquake catalog to HDF5 (metadata, summary, catalog_table, arrivals_table only).
+
+        Automatically merges with existing table rows outside time_range when time_range
+        is set and the file exists. Optionally appends one row to the 'summary' table.
+
         Parameters
         ----------
         catalog : obspy.Catalog or vdapseisutils.VCatalog
             Earthquake catalog to write
         metadata : dict
-            Processing metadata to store with the catalog
+            Processing metadata to store in HDF5 'metadata' group attrs
         summary_stats : dict, optional
-            If provided and output is HDF5, one row is appended to 'summary'. Keys:
+            If provided, one row is appended to 'summary'. Keys:
             date, config, loc_method, nlocations, t_exec_loc, t_update_loc (optional).
-        include_arrivals_in_asdf : bool, optional
-            If False (default), clears `Origin.arrivals` before writing QuakeML/ASDF
-            to keep the stored catalog smaller. Arrival information is still
-            extracted into the lightweight `arrivals_table` HDF5 dataset.
-            
+
         Notes
         -----
-        If time_range was specified during initialization, any existing events
-        within that time range will be removed before writing new events.
+        If time_range was specified during initialization, existing rows within that
+        range are replaced by the new catalog/arrivals; rows outside the range are kept.
         """
         print(f"Writing NonLinLoc output to {self.output_path}")
 
@@ -1893,7 +1889,6 @@ class NLLOutput:
             except (KeyError, FileNotFoundError):
                 pass
             except Exception as e:
-                # Corrupt or truncated HDF5 (e.g. from interrupted write)
                 existing_summary_df = None
                 corrupt_file = True
                 print(f"WARNING: Could not read existing locator file (corrupt or truncated): {e}")
@@ -1904,108 +1899,102 @@ class NLLOutput:
             except OSError:
                 pass
 
-        # Handle time-based data replacement
-        if self.time_range is not None and os.path.exists(self.output_path):
-            # Read existing data and filter out the time range
-            existing_catalog_filtered = self._get_filtered_existing_catalog(
-                self.time_range[0], self.time_range[1]
-            )
-            
-            # Combine existing (filtered) catalog with new catalog
-            if existing_catalog_filtered is not None and len(existing_catalog_filtered) > 0:
-                catalog = existing_catalog_filtered + catalog
-                
-        # Ensure catalog has proper comments attribute for QuakeML writing
-        if not hasattr(catalog, 'comments') or catalog.comments is None:
-            catalog.comments = []
-        
-        # Skip writing if catalog is empty
         if catalog is None or len(catalog) == 0:
             print("Warning: Empty catalog, skipping write operation")
             return
 
-        # Precompute both lightweight tables before optionally stripping arrivals.
-        # (Stripping affects only the stored QuakeML, not the lightweight tables.)
-        try:
-            arrivals_df = self._catalog_arrivals_to_dataframe(catalog)
-        except Exception as e:
-            print(f"WARNING: Could not extract arrivals_table from catalog: {e}")
-            arrivals_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
         try:
             catalog_df = self._catalog_to_dataframe(catalog)
+            arrivals_df = self._catalog_arrivals_to_dataframe(catalog)
         except Exception as e:
-            print(f"WARNING: Could not extract catalog_table from catalog: {e}")
+            print(f"WARNING: Could not extract tables from catalog: {e}")
             catalog_df = pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
+            arrivals_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
 
-        arrivals_backup = None
-        if not include_arrivals_in_asdf:
-            arrivals_backup = self._backup_and_strip_origin_arrivals(catalog)
-        
-        try:
-            import pyasdf
-            import tempfile
+        if self.time_range is not None and os.path.exists(self.output_path):
+            existing_catalog_df, existing_arrivals_df = self._get_filtered_existing_table_rows(
+                self.time_range[0], self.time_range[1]
+            )
+            if existing_catalog_df is not None and len(existing_catalog_df) > 0:
+                catalog_df = pd.concat([existing_catalog_df, catalog_df], ignore_index=True)
+            if existing_arrivals_df is not None and len(existing_arrivals_df) > 0:
+                arrivals_df = pd.concat([existing_arrivals_df, arrivals_df], ignore_index=True)
 
-            # Determine if we need to overwrite (when combining catalogs) or append
-            file_mode = 'w' if (self.time_range is not None and os.path.exists(self.output_path)) else 'a'
-            
-            with pyasdf.ASDFDataSet(self.output_path, mode=file_mode) as ds:
-                # Convert catalog to QuakeML and add to ASDF
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as tmp:
-                    temp_xml = tmp.name
-                    
-                try:
-                    catalog.write(temp_xml, format="QUAKEML")
-                    ds.add_quakeml(temp_xml)
-                finally:
-                    os.unlink(temp_xml)
-                    
-            # Store processing metadata in HDF5 format
-            processing_time = pd.Timestamp.now()
-            with h5py.File(self.output_path, 'a') as f:
-                if 'metadata' not in f:
-                    metadata_group = f.create_group('metadata')
+        if catalog_df.empty:
+            print("Warning: No catalog rows to write, skipping write operation")
+            return
+
+        os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
+        file_mode = "w" if (self.time_range is not None and os.path.exists(self.output_path)) else "a"
+        if file_mode == "w" and os.path.exists(self.output_path):
+            os.remove(self.output_path)
+
+        processing_time = pd.Timestamp.now()
+        with h5py.File(self.output_path, "a") as f:
+            if "metadata" not in f:
+                f.create_group("metadata")
+            metadata_group = f["metadata"]
+            for key, value in metadata.items():
+                if isinstance(value, (tuple, list)):
+                    metadata_group.attrs[key] = value
                 else:
-                    metadata_group = f['metadata']
-                    
-                # Store all metadata attributes
-                for key, value in metadata.items():
-                    if isinstance(value, (tuple, list)):
-                        metadata_group.attrs[key] = value
-                    else:
-                        metadata_group.attrs[key] = str(value)
-                
-                metadata_group.attrs['last_updated'] = str(processing_time)
-            if summary_stats is not None:
-                self._write_locator_summary(summary_stats, existing_summary_df=existing_summary_df)
+                    metadata_group.attrs[key] = str(value)
+            metadata_group.attrs["last_updated"] = str(processing_time)
 
-            # Write the lightweight, queryable event-level table.
-            try:
-                self._write_catalog_table(self.output_path, catalog_df)
-                self._write_arrivals_table(self.output_path, arrivals_df)
-            except Exception as e:
-                print(f"WARNING: Could not write lightweight tables to {self.output_path}: {e}")
-                
-        except ImportError:
-            print("WARNING: PyASDF not available, saving QuakeML to separate XML file")
-            # Fallback: save as separate XML file
-            xml_path = self.output_path.replace('.h5', '.xml')
-            catalog.write(xml_path, format="QUAKEML")
-            
-            # Save metadata as JSON
-            json_path = self.output_path.replace('.h5', '_metadata.json')
-            with open(json_path, 'w') as f:
-                json.dump(metadata, f, indent=2, default=str)
+        if summary_stats is not None:
+            self._write_locator_summary(summary_stats, existing_summary_df=existing_summary_df)
 
-            # Even without PyASDF, still backfill the lightweight queryable table.
-            # This ensures `pd.read_hdf(path, key="catalog_table")` keeps working.
+        try:
+            self._write_catalog_table(self.output_path, catalog_df)
+            self._write_arrivals_table(self.output_path, arrivals_df)
+        except Exception as e:
+            print(f"WARNING: Could not write tables to {self.output_path}: {e}")
+
+    def _get_filtered_existing_table_rows(self, t1, t2):
+        """
+        Read existing catalog_table and arrivals_table and return rows with origin_time
+        outside [t1, t2]. Used for time-range merge in write().
+
+        Returns
+        -------
+        tuple of (pd.DataFrame, pd.DataFrame) or (None, None)
+            (catalog_df, arrivals_df) with rows outside the time range, or (None, None)
+            if the file or tables are missing.
+        """
+        if not os.path.exists(self.output_path):
+            return (None, None)
+        if isinstance(t1, str):
+            t1 = UTCDateTime(t1)
+        if isinstance(t2, str):
+            t2 = UTCDateTime(t2)
+        ts_lo = pd.Timestamp(t1.datetime, tz="UTC")
+        ts_hi = pd.Timestamp(t2.datetime, tz="UTC")
+        try:
+            with pd.HDFStore(self.output_path, "r") as store:
+                if "catalog_table" not in store:
+                    return (None, None)
+                catalog_df = pd.read_hdf(self.output_path, key="catalog_table")
+        except Exception:
+            return (None, None)
+        if catalog_df.empty:
             try:
-                self._write_catalog_table(self.output_path, catalog_df)
-                self._write_arrivals_table(self.output_path, arrivals_df)
-            except Exception as e:
-                print(f"WARNING: Could not write lightweight tables to {self.output_path}: {e}")
-        finally:
-            if arrivals_backup is not None:
-                self._restore_origin_arrivals(catalog, arrivals_backup)
+                arrivals_df = pd.read_hdf(self.output_path, key="arrivals_table")
+            except Exception:
+                arrivals_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
+            return (catalog_df, arrivals_df)
+        catalog_df["origin_time"] = pd.to_datetime(catalog_df["origin_time"], utc=True, errors="coerce")
+        mask = (catalog_df["origin_time"] < ts_lo) | (catalog_df["origin_time"] > ts_hi)
+        catalog_df = catalog_df.loc[mask].copy()
+        kept_event_ids = set(catalog_df["event_id"].astype(str).unique())
+        try:
+            arrivals_df = pd.read_hdf(self.output_path, key="arrivals_table")
+        except Exception:
+            arrivals_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
+        if not arrivals_df.empty and len(kept_event_ids) > 0:
+            arrivals_df = arrivals_df[arrivals_df["event_id"].astype(str).isin(kept_event_ids)].copy()
+        elif not arrivals_df.empty and len(kept_event_ids) == 0:
+            arrivals_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
+        return (catalog_df, arrivals_df)
 
     def _write_locator_summary(self, summary_stats, existing_summary_df=None):
         """Append one row to summary table in the HDF5 file."""
