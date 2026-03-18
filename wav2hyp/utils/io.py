@@ -27,7 +27,68 @@ Author: WAV2HYP Development Team
 """
 
 from obspy import UTCDateTime
-from seisbench.util.annotations import PickList as SBPickList, DetectionList as SBDetectionList
+
+# `seisbench` is used for EQTransformer pick/detection annotations.
+# The locator/arrivals logic in this module should still be importable even
+# when `seisbench` isn't installed (e.g. during lightweight analysis/tests).
+try:
+    from seisbench.util.annotations import PickList as SBPickList, DetectionList as SBDetectionList  # type: ignore
+    from seisbench.util.annotations import Pick as _SeisBenchPick  # type: ignore
+    from seisbench.util.annotations import Detection as _SeisBenchDetection  # type: ignore
+
+    _SEISBENCH_AVAILABLE = True
+except ModuleNotFoundError:
+    _SEISBENCH_AVAILABLE = False
+
+    class _StubPick:
+        def __init__(
+            self,
+            trace_id: str,
+            start_time: UTCDateTime,
+            end_time: UTCDateTime,
+            peak_time: UTCDateTime,
+            peak_value: float,
+            phase: str,
+        ):
+            self.trace_id = trace_id
+            self.start_time = start_time
+            self.end_time = end_time
+            self.peak_time = peak_time
+            self.peak_value = float(peak_value)
+            self.phase = phase
+
+    class _StubDetection:
+        def __init__(
+            self,
+            trace_id: str,
+            start_time: UTCDateTime,
+            end_time: UTCDateTime,
+            peak_value: float,
+        ):
+            self.trace_id = trace_id
+            self.start_time = start_time
+            self.end_time = end_time
+            self.peak_value = float(peak_value)
+
+    class SBPickList:
+        def __init__(self, picks):
+            self._picks = list(picks)
+
+        def __iter__(self):
+            return iter(self._picks)
+
+        def __len__(self):
+            return len(self._picks)
+
+    class SBDetectionList:
+        def __init__(self, detections):
+            self._detections = list(detections)
+
+        def __iter__(self):
+            return iter(self._detections)
+
+        def __len__(self):
+            return len(self._detections)
 import pandas as pd
 import numpy as np
 import os
@@ -126,8 +187,9 @@ class PickListX(SBPickList):
         Optional column is_associated is ignored when building Pick objects
         (backward compatible with files that do not have this column).
         """
-        # Convert back to seisbench PickList format
-        from seisbench.util.annotations import PickList, Pick
+        # Convert back to seisbench PickList format when available; otherwise
+        # fall back to lightweight stubs (enough for summary/histogram tests).
+        Pick = _SeisBenchPick if _SEISBENCH_AVAILABLE else _StubPick
 
         picks = []
         for _, row in pick_df.iterrows():
@@ -227,20 +289,18 @@ class DetectionListX(SBDetectionList):
         Datetime columns can be provided as datetime objects or strings that
         can be parsed by ObsPy's UTCDateTime constructor.
         """
-        # Convert back to seisbench DetectionList format
-        from seisbench.util.annotations import PickList, Pick
-
-        picks = []
+        Detection = _SeisBenchDetection if _SEISBENCH_AVAILABLE else _StubDetection
+        detections = []
         for _, row in detection_df.iterrows():
-            pick = Pick(
+            det = Detection(
                 trace_id=row['trace_id'],
                 start_time=UTCDateTime(row['start_time']),
                 end_time=UTCDateTime(row['end_time']),
                 peak_value=row['peak_value'],
             )
-            picks.append(pick)
+            detections.append(det)
 
-        return cls(picks)
+        return cls(detections)
 
 
 class EQTOutput:
@@ -1186,6 +1246,8 @@ class NLLOutput:
         "n_p_picks",
         "n_s_picks",
         "azimuthal_gap",
+        "creation_info",  # JSON object; not indexed
+        "comments",       # JSON array; not indexed
     ]
     CATALOG_TABLE_INDEXED_COLUMNS = [
         "event_id",
@@ -1194,6 +1256,411 @@ class NLLOutput:
         "residual_rms",
         "azimuthal_gap",
     ]
+
+    # arrivals_table: one row per associated arrival (flattened from ObsPy Origin.arrivals)
+    ARRIVALS_TABLE_COLUMNS = [
+        # Event identifiers / provenance
+        "event_id",
+        "origin_time",
+        # Waveform / station lookup
+        "trace_id",
+        "station_id",
+        # Phase and linking
+        "phase",
+        "pick_id",
+        # Arrival timing and diagnostics
+        "arrival_time",
+        "residual",
+        "weight",
+        # Uncertainties (best-effort; may be NA if QuakeML/ObsPy doesn't expose them)
+        "residual_uncert",
+        "weight_uncert",
+        "creation_info",  # JSON; not indexed
+        "comments",       # JSON array; not indexed
+    ]
+
+    ARRIVALS_TABLE_INDEXED_COLUMNS = [
+        "event_id",
+        "arrival_time",
+        "station_id",
+        "phase",
+    ]
+
+    @staticmethod
+    def _canonicalize_phase(phase: str) -> str:
+        if phase is None:
+            return ""
+        ph = str(phase).strip().upper()
+        if ph.startswith("P"):
+            return "P"
+        if ph.startswith("S"):
+            return "S"
+        # Keep best-effort for unusual phase labels
+        return ph[:1] if ph else ""
+
+    @staticmethod
+    def _coerce_utc_datetime(x):
+        # Returns pandas datetime64[ns, UTC] (or pd.NaT)
+        if x is None or (isinstance(x, float) and np.isnan(x)):
+            return pd.NaT
+        if hasattr(x, "datetime"):
+            # obspy.UTCDateTime
+            return pd.to_datetime(x.datetime, utc=True, errors="coerce")
+        return pd.to_datetime(x, utc=True, errors="coerce")
+
+    @staticmethod
+    def _where_time_bounds(time_col: str, t1=None, t2=None):
+        """
+        Build a PyTables where expression for inclusive [t1, t2] filtering.
+
+        Assumes `time_col` is stored as pandas datetime64 (tz-aware UTC) in a
+        `format="table"` HDF5 dataset.
+        """
+        if t1 is None and t2 is None:
+            return None
+        if isinstance(t1, str):
+            t1 = UTCDateTime(t1)
+        if isinstance(t2, str):
+            t2 = UTCDateTime(t2)
+        ts_lo = pd.Timestamp(t1.datetime, tz="UTC").isoformat() if t1 is not None else None
+        ts_hi = pd.Timestamp(t2.datetime, tz="UTC").isoformat() if t2 is not None else None
+        if ts_lo is not None and ts_hi is not None:
+            return f"({time_col} >= '{ts_lo}') & ({time_col} <= '{ts_hi}')"
+        if ts_lo is not None:
+            return f"({time_col} >= '{ts_lo}')"
+        return f"({time_col} <= '{ts_hi}')"
+
+    @staticmethod
+    def _creation_info_to_json(obj) -> str:
+        """Serialize ObsPy CreationInfo (or similar) to a JSON string. Returns '{}' if absent."""
+        if obj is None:
+            return "{}"
+        d = {}
+        for attr in ("agency_id", "agency_uri", "author", "author_uri", "creation_time", "version"):
+            val = getattr(obj, attr, None)
+            if val is not None:
+                d[attr] = val
+        if not d:
+            return "{}"
+        return json.dumps(d, default=str)
+
+    @staticmethod
+    def _comments_to_json(obj) -> str:
+        """Serialize list of ObsPy Comment (or similar) to a JSON array string. Returns '[]' if absent."""
+        if obj is None:
+            return "[]"
+        comments = list(obj) if not isinstance(obj, list) else obj
+        out = []
+        for c in comments:
+            item = {}
+            if hasattr(c, "text") and c.text is not None:
+                item["text"] = str(c.text)
+            if hasattr(c, "type") and c.type is not None:
+                item["type"] = str(c.type)
+            out.append(item)
+        return json.dumps(out, default=str)
+
+    @staticmethod
+    def _backup_and_strip_origin_arrivals(catalog):
+        """
+        Temporarily clear ObsPy Origin.arrivals in-place (to shrink exported QuakeML),
+        returning a backup structure to restore later.
+        """
+        backups: list[list[object]] = []
+        for event in catalog:
+            origins = getattr(event, "origins", None) or []
+            origin_backups = []
+            for origin in origins:
+                origin_backups.append(getattr(origin, "arrivals", None))
+                # Clear while preserving the Origin object
+                origin.arrivals = []
+            backups.append(origin_backups)
+        return backups
+
+    @staticmethod
+    def _restore_origin_arrivals(catalog, backups):
+        for event, event_backup in zip(catalog, backups):
+            origins = getattr(event, "origins", None) or []
+            for origin, origin_backup in zip(origins, event_backup):
+                origin.arrivals = origin_backup
+
+    @staticmethod
+    def _catalog_arrivals_to_dataframe(catalog) -> pd.DataFrame:
+        """
+        Convert an ObsPy/VCatalog earthquake catalog into a normalized `arrivals_table`
+        DataFrame schema.
+
+        Notes:
+        - ObsPy `Arrival` objects don't reliably store absolute arrival time.
+          For QuakeML-derived catalogs, we store `arrival_time` by following `arrival.pick_id`
+          to the referenced `Pick.time`.
+        """
+        from .stations import station_from_trace_id
+        from obspy.core.event import ResourceIdentifier
+
+        rows = []
+        for idx, event in enumerate(catalog):
+            resource_id = getattr(event, "resource_id", None)
+            event_id = getattr(resource_id, "id", None) or f"nll_{idx}"
+
+            # Pick map: pick_id -> pick.time, waveform seed, etc.
+            picks = getattr(event, "picks", None) or []
+            pick_by_id = {}
+            for pick in picks:
+                prid = getattr(pick, "resource_id", None)
+                pid = getattr(prid, "id", None)
+                if pid:
+                    pick_by_id[pid] = pick
+
+            # Preferred origin policy
+            origin = None
+            if hasattr(event, "preferred_origin") and callable(event.preferred_origin):
+                origin = event.preferred_origin()
+            if origin is None:
+                origins = getattr(event, "origins", None) or []
+                origin = origins[0] if origins else None
+
+            origin_time = pd.NaT
+            origins = getattr(event, "origins", None) or []
+            if origin is not None:
+                origin_time = NLLOutput._coerce_utc_datetime(getattr(origin, "time", None))
+            elif origins:
+                origin_time = NLLOutput._coerce_utc_datetime(getattr(origins[0], "time", None))
+
+            origins_with_arrivals = []
+            if origin is not None:
+                origins_with_arrivals = [origin]
+            else:
+                origins_with_arrivals = origins
+
+            # If preferred origin has no arrivals, fall back to the first origin that does.
+            selected_origin = None
+            if origin is not None and (getattr(origin, "arrivals", None) or []):
+                selected_origin = origin
+            else:
+                for o in origins:
+                    if getattr(o, "arrivals", None) or []:
+                        selected_origin = o
+                        origin_time = NLLOutput._coerce_utc_datetime(getattr(o, "time", None))
+                        break
+
+            arrivals = getattr(selected_origin, "arrivals", None) or [] if selected_origin is not None else []
+            for arr in arrivals:
+                ph = getattr(arr, "phase", None) or getattr(arr, "phase_hint", None)
+                phase = NLLOutput._canonicalize_phase(ph)
+                pick_id_obj = getattr(arr, "pick_id", None)
+                pick_id = getattr(pick_id_obj, "id", None) if pick_id_obj is not None else None
+                if not pick_id:
+                    continue
+
+                pick = pick_by_id.get(pick_id)
+                if pick is None:
+                    continue
+
+                # Arrival time is derived from the referenced pick time.
+                ptime = getattr(pick, "time", None)
+                arrival_time = NLLOutput._coerce_utc_datetime(ptime)
+
+                # Waveform/trace info comes from the referenced Pick.
+                seed = None
+                wid = getattr(pick, "waveform_id", None)
+                if wid is not None:
+                    if hasattr(wid, "get_seed_string"):
+                        seed = wid.get_seed_string()
+                    elif isinstance(wid, str):
+                        seed = wid
+                trace_id = seed or ""
+                station_id = station_from_trace_id(trace_id) if trace_id else ""
+
+                # Residual/weight: best-effort with common ObsPy attribute names.
+                residual = getattr(arr, "time_residual", None)
+                if residual is None:
+                    residual = getattr(arr, "timeResidual", None)
+                weight = getattr(arr, "time_weight", None)
+                if weight is None:
+                    weight = getattr(arr, "timeWeight", None)
+
+                # uncertainties: ObsPy's Arrival doesn't expose these reliably, so default NA.
+                residual_uncert = pd.NA
+                weight_uncert = pd.NA
+
+                # creation_info / comments from pick (and optionally arrival)
+                creation_info = NLLOutput._creation_info_to_json(getattr(pick, "creation_info", None))
+                comments = NLLOutput._comments_to_json(getattr(pick, "comments", None))
+
+                rows.append(
+                    {
+                        "event_id": str(event_id),
+                        "origin_time": origin_time,
+                        "trace_id": str(trace_id),
+                        "station_id": str(station_id),
+                        "phase": phase,
+                        "pick_id": str(pick_id),
+                        "arrival_time": arrival_time,
+                        "residual": float(residual) if residual is not None and not pd.isna(residual) else pd.NA,
+                        "weight": float(weight) if weight is not None and not pd.isna(weight) else pd.NA,
+                        "residual_uncert": residual_uncert,
+                        "weight_uncert": weight_uncert,
+                        "creation_info": creation_info,
+                        "comments": comments,
+                    }
+                )
+
+        df = pd.DataFrame(rows, columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
+        if len(df) > 0:
+            df["origin_time"] = pd.to_datetime(df["origin_time"], utc=True, errors="coerce")
+            df["arrival_time"] = pd.to_datetime(df["arrival_time"], utc=True, errors="coerce")
+        return df
+
+    @staticmethod
+    def _write_arrivals_table(output_path: str, arrivals_table_df: pd.DataFrame):
+        arrivals_table_df = arrivals_table_df.copy()
+        if arrivals_table_df.empty:
+            arrivals_table_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
+
+        data_columns = NLLOutput.ARRIVALS_TABLE_INDEXED_COLUMNS
+        for col in data_columns:
+            if col not in arrivals_table_df.columns:
+                arrivals_table_df[col] = pd.NA
+
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # Replace key so repeated runs (or time_range merges) remain consistent.
+        if os.path.exists(output_path):
+            with pd.HDFStore(output_path, "a") as store:
+                if "arrivals_table" in store:
+                    del store["arrivals_table"]
+
+        # Ensure stable dtypes for query engine.
+        if len(arrivals_table_df) > 0:
+            arrivals_table_df["origin_time"] = pd.to_datetime(arrivals_table_df["origin_time"], utc=True, errors="coerce")
+            arrivals_table_df["arrival_time"] = pd.to_datetime(arrivals_table_df["arrival_time"], utc=True, errors="coerce")
+
+        arrivals_table_df.to_hdf(
+            output_path,
+            key="arrivals_table",
+            mode="a" if os.path.exists(output_path) else "w",
+            format="table",
+            data_columns=data_columns,
+            complevel=9,
+            complib="blosc",
+        )
+
+    def read_arrivals(self, events=None, event_ids=None, t1=None, t2=None) -> pd.DataFrame:
+        """
+        Fast arrival lookup from `nll.h5` `arrivals_table`.
+
+        Returns a pd.DataFrame with schema `NLLOutput.ARRIVALS_TABLE_COLUMNS`.
+        """
+        if events is None and event_ids is None:
+            raise ValueError("Provide either `events` or `event_ids` to read arrivals.")
+
+        # Normalize event_id list
+        if event_ids is None:
+            event_ids = []
+            if events is not None:
+                for ev in events:
+                    resid = getattr(ev, "resource_id", None)
+                    eid = getattr(resid, "id", None)
+                    if eid:
+                        event_ids.append(str(eid))
+        event_ids = [str(eid) for eid in (event_ids or []) if eid is not None]
+
+        time_where = self._where_time_bounds("arrival_time", t1=t1, t2=t2)
+
+        event_where = None
+        if len(event_ids) > 0:
+            # PyTables where() doesn't support SQL IN well; use OR chain for small sets.
+            # For large sets, rely on time filtering instead.
+            if len(event_ids) <= 2000:
+                ors = " | ".join([f'(event_id == \"{eid}\")' for eid in event_ids])
+                event_where = f"({ors})"
+            else:
+                print("WARNING: `event_ids` too large for where() OR-chain; ignoring event_id filter.")
+
+        if time_where and event_where:
+            where = f"({time_where}) & {event_where}"
+        else:
+            where = time_where or event_where
+
+        df = pd.read_hdf(self.output_path, key="arrivals_table", where=where)
+        if len(df) > 0:
+            df["origin_time"] = pd.to_datetime(df["origin_time"], utc=True, errors="coerce")
+            df["arrival_time"] = pd.to_datetime(df["arrival_time"], utc=True, errors="coerce")
+        df.sort_values("arrival_time", inplace=True, ignore_index=True)
+        return df
+
+    @staticmethod
+    def attach_arrivals_to_catalog(catalog, arrivals_df: pd.DataFrame):
+        """
+        Attach real ObsPy Arrival objects onto each Event's preferred Origin.
+
+        Attachment strategy:
+        - Create Arrival objects with (phase, pick_id, time_residual, time_weight).
+        - The absolute arrival time can be derived from the referenced Pick.time, so
+          ObsPy Arrival objects may not store a direct arrival-time attribute.
+        """
+        from obspy.core.event import Arrival, ResourceIdentifier
+
+        if arrivals_df is None or len(arrivals_df) == 0:
+            return catalog
+
+        arrivals_df = arrivals_df.copy()
+        if "event_id" not in arrivals_df.columns:
+            raise KeyError("arrivals_df must include 'event_id'")
+
+        # Index events by event_id
+        events_by_id = {}
+        for event in catalog:
+            resid = getattr(event, "resource_id", None)
+            eid = getattr(resid, "id", None)
+            if eid:
+                events_by_id[str(eid)] = event
+
+        # Attach per event
+        for event_id, sub in arrivals_df.groupby("event_id"):
+            event = events_by_id.get(str(event_id))
+            if event is None:
+                continue
+
+            # Preferred origin if possible; else first origin.
+            origin = None
+            if hasattr(event, "preferred_origin") and callable(event.preferred_origin):
+                origin = event.preferred_origin()
+            if origin is None:
+                origins = getattr(event, "origins", None) or []
+                origin = origins[0] if origins else None
+            if origin is None:
+                continue
+
+            # Map pick_id -> Pick for validation.
+            picks = getattr(event, "picks", None) or []
+            pick_ids = {getattr(getattr(p, "resource_id", None), "id", None) for p in picks}
+
+            origin.arrivals = []
+            for _, row in sub.iterrows():
+                pick_id = row.get("pick_id", None)
+                if not pick_id:
+                    continue
+                if str(pick_id) not in pick_ids:
+                    # Can't attach Arrival without referenced Pick.
+                    continue
+
+                phase = row.get("phase", None) or ""
+                phase = NLLOutput._canonicalize_phase(phase)
+                arr = Arrival(phase=phase, pick_id=ResourceIdentifier(str(pick_id)))
+
+                residual = row.get("residual", pd.NA)
+                if residual is not None and not pd.isna(residual):
+                    arr.time_residual = float(residual)
+
+                weight = row.get("weight", pd.NA)
+                if weight is not None and not pd.isna(weight):
+                    arr.time_weight = float(weight)
+
+                origin.arrivals.append(arr)
+
+        return catalog
 
     @staticmethod
     def _catalog_to_dataframe(catalog):
@@ -1317,6 +1784,18 @@ class NLLOutput:
 
             n_picks = int(n_p_picks) + int(n_s_picks)
 
+            # creation_info / comments: prefer origin, fallback to event
+            creation_info = NLLOutput._creation_info_to_json(
+                getattr(origin, "creation_info", None) if origin else None
+            )
+            if creation_info == "{}" and event is not None:
+                creation_info = NLLOutput._creation_info_to_json(getattr(event, "creation_info", None))
+            comments = NLLOutput._comments_to_json(
+                getattr(origin, "comments", None) if origin else None
+            )
+            if comments == "[]" and event is not None:
+                comments = NLLOutput._comments_to_json(getattr(event, "comments", None))
+
             rows.append(
                 {
                     "event_id": str(event_id),
@@ -1335,6 +1814,8 @@ class NLLOutput:
                     "n_p_picks": int(n_p_picks),
                     "n_s_picks": int(n_s_picks),
                     "azimuthal_gap": azimuthal_gap,
+                    "creation_info": creation_info,
+                    "comments": comments,
                 }
             )
 
@@ -1376,7 +1857,7 @@ class NLLOutput:
             complib="blosc",
         )
 
-    def write(self, catalog, metadata, summary_stats=None):
+    def write(self, catalog, metadata, summary_stats=None, include_arrivals_in_asdf: bool = False):
         """
         Write earthquake catalog to ASDF file with XML fallback.
         
@@ -1392,6 +1873,10 @@ class NLLOutput:
         summary_stats : dict, optional
             If provided and output is HDF5, one row is appended to 'summary'. Keys:
             date, config, loc_method, nlocations, t_exec_loc, t_update_loc (optional).
+        include_arrivals_in_asdf : bool, optional
+            If False (default), clears `Origin.arrivals` before writing QuakeML/ASDF
+            to keep the stored catalog smaller. Arrival information is still
+            extracted into the lightweight `arrivals_table` HDF5 dataset.
             
         Notes
         -----
@@ -1438,6 +1923,23 @@ class NLLOutput:
         if catalog is None or len(catalog) == 0:
             print("Warning: Empty catalog, skipping write operation")
             return
+
+        # Precompute both lightweight tables before optionally stripping arrivals.
+        # (Stripping affects only the stored QuakeML, not the lightweight tables.)
+        try:
+            arrivals_df = self._catalog_arrivals_to_dataframe(catalog)
+        except Exception as e:
+            print(f"WARNING: Could not extract arrivals_table from catalog: {e}")
+            arrivals_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
+        try:
+            catalog_df = self._catalog_to_dataframe(catalog)
+        except Exception as e:
+            print(f"WARNING: Could not extract catalog_table from catalog: {e}")
+            catalog_df = pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
+
+        arrivals_backup = None
+        if not include_arrivals_in_asdf:
+            arrivals_backup = self._backup_and_strip_origin_arrivals(catalog)
         
         try:
             import pyasdf
@@ -1478,10 +1980,10 @@ class NLLOutput:
 
             # Write the lightweight, queryable event-level table.
             try:
-                df = self._catalog_to_dataframe(catalog)
-                self._write_catalog_table(self.output_path, df)
+                self._write_catalog_table(self.output_path, catalog_df)
+                self._write_arrivals_table(self.output_path, arrivals_df)
             except Exception as e:
-                print(f"WARNING: Could not write catalog_table to {self.output_path}: {e}")
+                print(f"WARNING: Could not write lightweight tables to {self.output_path}: {e}")
                 
         except ImportError:
             print("WARNING: PyASDF not available, saving QuakeML to separate XML file")
@@ -1497,10 +1999,13 @@ class NLLOutput:
             # Even without PyASDF, still backfill the lightweight queryable table.
             # This ensures `pd.read_hdf(path, key="catalog_table")` keeps working.
             try:
-                df = self._catalog_to_dataframe(catalog)
-                self._write_catalog_table(self.output_path, df)
+                self._write_catalog_table(self.output_path, catalog_df)
+                self._write_arrivals_table(self.output_path, arrivals_df)
             except Exception as e:
-                print(f"WARNING: Could not write catalog_table to {self.output_path}: {e}")
+                print(f"WARNING: Could not write lightweight tables to {self.output_path}: {e}")
+        finally:
+            if arrivals_backup is not None:
+                self._restore_origin_arrivals(catalog, arrivals_backup)
 
     def _write_locator_summary(self, summary_stats, existing_summary_df=None):
         """Append one row to summary table in the HDF5 file."""
@@ -1621,7 +2126,7 @@ class NLLOutput:
         else:
             return None
 
-    def read(self, t1=None, t2=None):
+    def read(self, t1=None, t2=None, include_arrivals: bool = False):
         """
         Read earthquake catalog from ASDF file or XML fallback with optional time filtering.
         
@@ -1631,6 +2136,9 @@ class NLLOutput:
             Start time for filtering events
         t2 : UTCDateTime or str, optional
             End time for filtering events
+        include_arrivals : bool, optional
+            If True and `arrivals_table` exists, attach ObsPy `Arrival` objects
+            (built from `arrivals_table` rows) onto each Event's preferred origin.
             
         Returns
         -------
@@ -1706,9 +2214,77 @@ class NLLOutput:
                 
                 vcatalog = vcatalog.filter(time=[t1, t2])
                 print(f"Time filtered catalog from {t1} to {t2}")
+
+            if include_arrivals:
+                try:
+                    arrivals_df = self.read_arrivals(events=vcatalog, t1=t1, t2=t2)
+                    vcatalog = self.attach_arrivals_to_catalog(vcatalog, arrivals_df)
+                except KeyError:
+                    # arrivals_table missing: leave catalog as-is (might still contain origins.arrivals).
+                    print(f"WARNING: arrivals_table missing in {self.output_path}; returning catalog without attached arrivals.")
             
             print(f"Events: {len(vcatalog):5d}\n")
             
             return vcatalog, metadata
         else:
             return None, None
+
+    def export_catalog(
+        self,
+        format: str = "quakeml",
+        include_arrivals: bool = False,
+        export_path=None,
+        include_arrivals_in_asdf=None,
+    ):
+        """
+        Export the located catalog to an ObsPy-supported format.
+
+        This is a *bulk export* (one file containing all events), suitable for
+        later ingestion by ObsPy or other tooling.
+
+        Parameters
+        ----------
+        format : str
+            ObsPy output format (e.g. ``'quakeml'``).
+        include_arrivals : bool
+            If False, clears ``Origin.arrivals`` before export (default) so the
+            exported XML stays small.
+        export_path : str, optional
+            Output path. If omitted, derives it from ``self.output_path``.
+
+        Returns
+        -------
+        str
+            The export path.
+        """
+        # Backwards-compatibility: ignore `include_arrivals_in_asdf` if passed.
+        _ = include_arrivals_in_asdf
+
+        catalog, _ = self.read(include_arrivals=include_arrivals)
+        if catalog is None:
+            raise FileNotFoundError(f"No catalog found in {self.output_path}")
+
+        fmt = (format or "quakeml").strip().lower()
+        if fmt in ("quakeml", "xml"):
+            obs_py_format = "QUAKEML"
+            ext = ".xml"
+        else:
+            # Let ObsPy handle more exotic formats; pick a generic extension.
+            obs_py_format = fmt.upper()
+            ext = f".{fmt}"
+
+        if export_path is None:
+            export_path = self.output_path.replace(".h5", f"_export{ext}")
+
+        # Ensure we don't export arrivals unless requested.
+        arrivals_backup = None
+        if not include_arrivals:
+            arrivals_backup = self._backup_and_strip_origin_arrivals(catalog)
+
+        try:
+            catalog.write(export_path, format=obs_py_format)
+        finally:
+            if arrivals_backup is not None:
+                self._restore_origin_arrivals(catalog, arrivals_backup)
+
+        return export_path
