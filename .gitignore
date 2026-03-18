@@ -20,6 +20,7 @@ TODO.py
 results/sthelens*
 results/*.bak
 *_local/
+analysis_local/
 .remote_compare/
   __pycache__/
   *.pyc
