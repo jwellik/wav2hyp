@@ -35,13 +35,13 @@ inventory:
 # - All outputs are relative to base_dir
 output:
   base_dir: "./results/sthelens"
-  picker_dir: "picks"
-  associator_dir: "associations" 
-  locator_dir: "locations"
+  picker_dir: "1_picks"
+  associator_dir: "2_associations" 
+  locator_dir: "3_locations"
   log_dir: "logs"
-  picker_summary: "sthelens_picker_summary.txt"
-  associator_summary: "sthelens_associator_summary.txt"
-  locator_summary: "sthelens_locator_summary.txt"
+  picker_summary: "sthelens_1_picker_summary.txt"
+  associator_summary: "sthelens_2_associator_summary.txt"
+  locator_summary: "sthelens_3_locator_summary.txt"
   # Per-channel summary: set to filename (e.g. "station_summary.txt") to enable; null or omit to disable
   station_summary: "sthelens_station_summary.txt"
   # Per-day config snapshot: set to a subdir name (e.g. "config_snapshots") to enable; false or omit to disable
