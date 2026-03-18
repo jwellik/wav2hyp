@@ -33,8 +33,8 @@ def __getattr__(name: str):
     """
     Lazily import heavy dependencies (e.g., `torch`) only when needed.
 
-    This keeps lightweight utilities (like writing `catalog_table`) usable
-    in environments that don't have the full ML stack installed.
+    This keeps lightweight utilities (e.g. locator HDF5 tables: catalog_table,
+    arrivals_table) usable in environments that don't have the full ML stack installed.
     """
     if name in {"WAV2HYP", "main"}:
         from .core import WAV2HYP, main

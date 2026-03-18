@@ -1,8 +1,8 @@
 # Data Structures
 
-WAV2HYP stores results in HDF5 (picker and associator) and ASDF (locator). This page describes the layout of each file and how to read data, including efficient queries using indexed columns where available.
+WAV2HYP stores results in HDF5 (picker, associator, and locator). This page describes the layout of each file and how to read data, including efficient queries using indexed columns where available.
 
-**Export to text/CSV:** The `summary` tables in picker, associator, and locator HDF5 files are written automatically to CSV when the pipeline is run with summary output paths (e.g. `*_picker_summary.txt`). Picks and detections can be exported via `EQTOutput(...).read()` then `.to_dataframe().to_csv(...)`; the locator `catalog_table` via `pd.read_hdf(path, key="catalog_table").to_csv(...)`.
+**Export to text/CSV:** The `summary` tables in picker, associator, and locator HDF5 files are written automatically to CSV when the pipeline is run with summary output paths (e.g. `*_picker_summary.txt`). Picks and detections can be exported via `EQTOutput(...).read()` then `.to_dataframe().to_csv(...)`; the locator catalog via `NLLOutput(path).read()` or `NLLOutput(path).read_catalog_table()` then `.to_csv(...)`.
 
 ---
 
@@ -194,7 +194,7 @@ assignments_df = pd.read_hdf(path, key='assignments')
 
 ## Locator: `results/<target>/locations/nll.h5`
 
-**Format:** ASDF (HDF5-based). Fallback when PyASDF is not available: `nll.xml` (QuakeML) and `nll_metadata.json`. In addition to the full QuakeML catalog inside ASDF, a lightweight tabular catalog view is stored as a pandas table for fast event-level queries.
+**Format:** HDF5 only. No ASDF QuakeML blob, no sidecar nll.xml or nll_metadata.json. The file contains a metadata group (attrs), optional summary table, catalog_table, and arrivals_table. NLLOutput.read() builds ObsPy Event/Origin (and Picks/Arrivals when requested) from these tables.
 
 **Keys / content**
 
@@ -205,9 +205,12 @@ assignments_df = pd.read_hdf(path, key='assignments')
 | (group) `metadata` | Attributes: method, nll_home, target, event_date, nll_directory, last_updated |
 | `summary`          | One row per processing day (nlocations, timing)                               |
 | `catalog_table`    | One row per located event; pandas table with indexed columns for fast query   |
+| `arrivals_table`   | One row per origin arrival (phase pick linkage) for fast arrival queries        |
 
 
-**Indexed data_columns (queryable with `where=`):** On `catalog_table` only: **event_id**, **origin_time**, **mag**, **residual_rms**, **azimuthal_gap**. The underlying QuakeML catalog is accessed via PyASDF/ObsPy.
+**Indexed data_columns (queryable with `where=`):**
+- On `catalog_table` only: **event_id**, **origin_time**, **mag**, **residual_rms**, **azimuthal_gap**
+- On `arrivals_table`: **event_id**, **arrival_time**, **station_id**, **phase**
 
 **Columns** (bold = indexed on `catalog_table`)
 
@@ -223,6 +226,19 @@ assignments_df = pd.read_hdf(path, key='assignments')
 - **residual_rms** — Origin standard error / RMS residual (if available)
 - n_picks, n_p_picks, n_s_picks — Associated pick counts (total, P, S)
 - **azimuthal_gap** — Azimuthal gap in degrees (if from NonLinLoc/QuakeML)
+
+arrivals_table *(can be exported via `pd.read_hdf(path, key="arrivals_table").to_csv(...)`)*
+
+Columns:
+- **event_id** — Event identifier (matches QuakeML resource_id where available)
+- **origin_time** — Event origin time (UTC)
+- trace_id — Full waveform seed string when available (NET.STA.LOC.CHA)
+- **station_id** — Station identifier derived from `trace_id` (best-effort NET.STA)
+- **phase** — Canonical phase label (`P`/`S`)
+- pick_id — Referenced pick resource identifier (used by ObsPy `Arrival`)
+- **arrival_time** — Arrival/pick time (UTC), derived from referenced pick time
+- residual, weight — Best-effort residual and association weight (if present in QuakeML/ObsPy)
+- residual_uncert, weight_uncert — Uncertainties when present (otherwise NA)
 
 **summary** *(exported as CSV when pipeline is run with summary output paths)*
 
@@ -253,16 +269,24 @@ path = "results/sthelens/locations/nll.h5"
 cat_df = pd.read_hdf(path, key="catalog_table")
 
 # Time window and basic quality filters
-ts_lo = pd.Timestamp("2004-09-23").value
-ts_hi = pd.Timestamp("2004-09-25").value
+ts_lo = pd.Timestamp("2004-09-23", tz="UTC").isoformat()
+ts_hi = pd.Timestamp("2004-09-25", tz="UTC").isoformat()
 where = (
-    f"(origin_time >= {ts_lo}) & "
-    f"(origin_time <= {ts_hi}) & "
+    f"(origin_time >= '{ts_lo}') & "
+    f"(origin_time <= '{ts_hi}') & "
     f"(mag >= 1.5) & "
     f"(residual_rms <= 0.5) & "
     f"(azimuthal_gap <= 180)"
 )
 cat_subset = pd.read_hdf(path, key="catalog_table", where=where)
+
+# Fast arrivals subset (phase + time)
+where_arr = (
+    f"(arrival_time >= '{ts_lo}') & "
+    f"(arrival_time <= '{ts_hi}') & "
+    f"(phase == 'P')"
+)
+arr_subset = pd.read_hdf(path, key="arrivals_table", where=where_arr)
 ```
 
 **Direct ASDF (full catalog):**
