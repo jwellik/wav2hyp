@@ -1169,6 +1169,213 @@ class NLLOutput:
         self.time_range = time_range  # (t1, t2) tuple for cleaning existing data
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
+    # Must match docs/data-structures.md exactly
+    CATALOG_TABLE_COLUMNS = [
+        "event_id",
+        "origin_time",
+        "latitude",
+        "longitude",
+        "depth_km",
+        "x",
+        "y",
+        "z",
+        "mag",
+        "mag_type",
+        "residual_rms",
+        "n_picks",
+        "n_p_picks",
+        "n_s_picks",
+        "azimuthal_gap",
+    ]
+    CATALOG_TABLE_INDEXED_COLUMNS = [
+        "event_id",
+        "origin_time",
+        "mag",
+        "residual_rms",
+        "azimuthal_gap",
+    ]
+
+    @staticmethod
+    def _catalog_to_dataframe(catalog):
+        """
+        Convert an ObsPy `Catalog` (or vdapseisutils `VCatalog`) into the
+        `catalog_table` DataFrame schema described in docs/data-structures.md.
+        """
+        rows = []
+
+        for idx, event in enumerate(catalog):
+            resource_id = getattr(event, "resource_id", None)
+            event_id = getattr(resource_id, "id", None)
+            if not event_id:
+                event_id = f"nll_{idx}"
+
+            origin = None
+            if hasattr(event, "preferred_origin") and callable(event.preferred_origin):
+                origin = event.preferred_origin()
+            if origin is None:
+                origins = getattr(event, "origins", None) or []
+                origin = origins[0] if origins else None
+
+            # Magnitude
+            magnitude = None
+            if hasattr(event, "preferred_magnitude") and callable(event.preferred_magnitude):
+                magnitude = event.preferred_magnitude()
+            if magnitude is None:
+                magnitudes = getattr(event, "magnitudes", None) or []
+                magnitude = magnitudes[0] if magnitudes else None
+
+            if magnitude is not None:
+                mag = getattr(magnitude, "mag", None)
+                mag_type = getattr(magnitude, "magnitude_type", None)
+            else:
+                mag = np.nan
+                mag_type = None
+
+            # Default geometry + quality
+            latitude = np.nan
+            longitude = np.nan
+            depth_km = np.nan
+            x = np.nan
+            y = np.nan
+            z = np.nan
+            residual_rms = np.nan
+            azimuthal_gap = np.nan
+            origin_time = pd.NaT
+
+            n_p_picks = 0
+            n_s_picks = 0
+
+            if origin is not None:
+                lat = getattr(origin, "latitude", None)
+                lon = getattr(origin, "longitude", None)
+                depth = getattr(origin, "depth", None)
+                origin_time_val = getattr(origin, "time", None)
+
+                if lat is not None:
+                    latitude = float(lat)
+                if lon is not None:
+                    longitude = float(lon)
+
+                if depth is not None:
+                    depth = float(depth)
+                    # Heuristic: ObsPy origins are often stored in meters; docs want km.
+                    depth_km = depth / 1000.0 if abs(depth) > 1000.0 else depth
+
+                # Coordinates in local system (optional)
+                x_val = getattr(origin, "x", None)
+                if x_val is not None:
+                    x = float(x_val)
+                y_val = getattr(origin, "y", None)
+                if y_val is not None:
+                    y = float(y_val)
+                z_val = getattr(origin, "z", None)
+                if z_val is not None:
+                    z = float(z_val)
+
+                # Origin time -> pandas datetime64
+                if origin_time_val is not None:
+                    if hasattr(origin_time_val, "datetime"):
+                        origin_time = origin_time_val.datetime
+                    else:
+                        origin_time = pd.to_datetime(origin_time_val, utc=True, errors="coerce")
+
+                # Residual + azimuthal gap
+                quality = getattr(origin, "quality", None)
+                if quality is not None:
+                    se = getattr(quality, "standard_error", None)
+                    gap = getattr(quality, "azimuthal_gap", None)
+                    if se is not None:
+                        residual_rms = float(se)
+                    if gap is not None:
+                        azimuthal_gap = float(gap)
+
+                # Prefer arrivals on preferred origin if present; otherwise fall back to picks.
+                arrivals = getattr(origin, "arrivals", None) or []
+                if len(arrivals) > 0:
+                    for arr in arrivals:
+                        ph = getattr(arr, "phase", None) or getattr(arr, "phase_hint", None)
+                        if not ph:
+                            continue
+                        ph = str(ph).strip().upper()
+                        if ph.startswith("P"):
+                            n_p_picks += 1
+                        elif ph.startswith("S"):
+                            n_s_picks += 1
+
+            # If arrivals did not exist, count from event picks by phase_hint.
+            if n_p_picks == 0 and n_s_picks == 0:
+                picks = getattr(event, "picks", None) or []
+                for pick in picks:
+                    ph = getattr(pick, "phase_hint", None) or getattr(pick, "phase", None)
+                    if not ph:
+                        continue
+                    ph = str(ph).strip().upper()
+                    if ph.startswith("P"):
+                        n_p_picks += 1
+                    elif ph.startswith("S"):
+                        n_s_picks += 1
+
+            n_picks = int(n_p_picks) + int(n_s_picks)
+
+            rows.append(
+                {
+                    "event_id": str(event_id),
+                    "origin_time": origin_time,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "depth_km": depth_km,
+                    "x": x,
+                    "y": y,
+                    "z": z,
+                    "mag": mag if mag is not None else np.nan,
+                    # PyTables string columns don't like `None`; store empty string instead.
+                    "mag_type": "" if mag_type is None else str(mag_type),
+                    "residual_rms": residual_rms,
+                    "n_picks": n_picks,
+                    "n_p_picks": int(n_p_picks),
+                    "n_s_picks": int(n_s_picks),
+                    "azimuthal_gap": azimuthal_gap,
+                }
+            )
+
+        df = pd.DataFrame(rows, columns=NLLOutput.CATALOG_TABLE_COLUMNS)
+        # Ensure dtypes are compatible with PyTables query engine.
+        if len(df) > 0:
+            df["origin_time"] = pd.to_datetime(df["origin_time"], utc=True, errors="coerce")
+        return df
+
+    @staticmethod
+    def _write_catalog_table(output_path, catalog_table_df):
+        """Write `catalog_table` to HDF5 using indexed PyTables data_columns."""
+        catalog_table_df = catalog_table_df.copy()
+        if catalog_table_df.empty:
+            # Still write an empty table with the expected schema.
+            catalog_table_df = pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
+
+        data_columns = NLLOutput.CATALOG_TABLE_INDEXED_COLUMNS
+        for col in data_columns:
+            if col not in catalog_table_df.columns:
+                catalog_table_df[col] = pd.NA
+
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # Replace the key so repeated runs (or time_range merges) remain consistent.
+        if os.path.exists(output_path):
+            with pd.HDFStore(output_path, "a") as store:
+                if "catalog_table" in store:
+                    del store["catalog_table"]
+
+        mode = "a" if os.path.exists(output_path) else "w"
+        catalog_table_df.to_hdf(
+            output_path,
+            key="catalog_table",
+            mode=mode,
+            format="table",
+            data_columns=data_columns,
+            complevel=9,
+            complib="blosc",
+        )
+
     def write(self, catalog, metadata, summary_stats=None):
         """
         Write earthquake catalog to ASDF file with XML fallback.
@@ -1268,6 +1475,13 @@ class NLLOutput:
                 metadata_group.attrs['last_updated'] = str(processing_time)
             if summary_stats is not None:
                 self._write_locator_summary(summary_stats, existing_summary_df=existing_summary_df)
+
+            # Write the lightweight, queryable event-level table.
+            try:
+                df = self._catalog_to_dataframe(catalog)
+                self._write_catalog_table(self.output_path, df)
+            except Exception as e:
+                print(f"WARNING: Could not write catalog_table to {self.output_path}: {e}")
                 
         except ImportError:
             print("WARNING: PyASDF not available, saving QuakeML to separate XML file")
@@ -1279,6 +1493,14 @@ class NLLOutput:
             json_path = self.output_path.replace('.h5', '_metadata.json')
             with open(json_path, 'w') as f:
                 json.dump(metadata, f, indent=2, default=str)
+
+            # Even without PyASDF, still backfill the lightweight queryable table.
+            # This ensures `pd.read_hdf(path, key="catalog_table")` keeps working.
+            try:
+                df = self._catalog_to_dataframe(catalog)
+                self._write_catalog_table(self.output_path, df)
+            except Exception as e:
+                print(f"WARNING: Could not write catalog_table to {self.output_path}: {e}")
 
     def _write_locator_summary(self, summary_stats, existing_summary_df=None):
         """Append one row to summary table in the HDF5 file."""

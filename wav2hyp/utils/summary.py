@@ -174,7 +174,7 @@ def append_station_summary_rows(
         if write_header:
             writer.writeheader()
         for _, row in df.iterrows():
-            writer.writerow(row)
+            writer.writerow(row.to_dict())
 
 
 class SummaryExporter:
