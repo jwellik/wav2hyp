@@ -1361,6 +1361,216 @@ class NLLOutput:
         return json.dumps(out, default=str)
 
     @staticmethod
+    def _json_to_creation_info(s):
+        """Parse JSON string to ObsPy CreationInfo-like object. Returns None if empty or invalid."""
+        if not s or (isinstance(s, str) and s.strip() in ("", "{}")):
+            return None
+        try:
+            d = json.loads(s) if isinstance(s, str) else s
+        except (TypeError, json.JSONDecodeError):
+            return None
+        if not d:
+            return None
+        from obspy.core.event import CreationInfo
+        ci = CreationInfo()
+        for key in ("agency_id", "agency_uri", "author", "author_uri", "creation_time", "version"):
+            if key in d and d[key] is not None:
+                setattr(ci, key, d[key])
+        return ci
+
+    @staticmethod
+    def _json_to_comments(s) -> list:
+        """Parse JSON string to list of ObsPy Comment-like objects. Returns [] if empty or invalid."""
+        if not s or (isinstance(s, str) and s.strip() in ("", "[]")):
+            return []
+        try:
+            items = json.loads(s) if isinstance(s, str) else s
+        except (TypeError, json.JSONDecodeError):
+            return []
+        if not isinstance(items, list):
+            return []
+        from obspy.core.event import Comment
+        out = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            c = Comment()
+            if "text" in item and item["text"] is not None:
+                c.text = str(item["text"])
+            if "type" in item and item["type"] is not None:
+                c.type = str(item["type"])
+            out.append(c)
+        return out
+
+    @staticmethod
+    def _catalog_table_to_events(catalog_df: pd.DataFrame):
+        """
+        Build a list of ObsPy Event objects from a catalog_table DataFrame.
+        Each row becomes one Event with one Origin and optionally one Magnitude.
+        """
+        from obspy.core.event import (
+            Catalog,
+            Event,
+            Magnitude,
+            Origin,
+            OriginQuality,
+            ResourceIdentifier,
+        )
+
+        if catalog_df is None or len(catalog_df) == 0:
+            return []
+
+        catalog_df = catalog_df.copy()
+        catalog_df["origin_time"] = pd.to_datetime(catalog_df["origin_time"], utc=True, errors="coerce")
+
+        events = []
+        for _, row in catalog_df.iterrows():
+            event_id = str(row.get("event_id", ""))
+            origin_time = row.get("origin_time")
+            if pd.isna(origin_time):
+                continue
+            ot = UTCDateTime(origin_time)
+
+            latitude = row.get("latitude", np.nan)
+            longitude = row.get("longitude", np.nan)
+            depth_km = row.get("depth_km", np.nan)
+            if pd.isna(depth_km):
+                depth_m = None
+            else:
+                depth_m = float(depth_km) * 1000.0 if abs(float(depth_km)) < 1000.0 else float(depth_km)
+
+            x = row.get("x", np.nan)
+            y = row.get("y", np.nan)
+            z = row.get("z", np.nan)
+            if pd.isna(x):
+                x = None
+            else:
+                x = float(x)
+            if pd.isna(y):
+                y = None
+            else:
+                y = float(y)
+            if pd.isna(z):
+                z = None
+            else:
+                z = float(z)
+
+            residual_rms = row.get("residual_rms", np.nan)
+            azimuthal_gap = row.get("azimuthal_gap", np.nan)
+            quality = OriginQuality(
+                standard_error=float(residual_rms) if pd.notna(residual_rms) else None,
+                azimuthal_gap=float(azimuthal_gap) if pd.notna(azimuthal_gap) else None,
+            )
+
+            origin = Origin(
+                time=ot,
+                latitude=float(latitude) if pd.notna(latitude) else None,
+                longitude=float(longitude) if pd.notna(longitude) else None,
+                depth=depth_m,
+                quality=quality,
+            )
+            if x is not None:
+                origin.x = x
+            if y is not None:
+                origin.y = y
+            if z is not None:
+                origin.z = z
+
+            mag = row.get("mag", np.nan)
+            mag_type = row.get("mag_type", None)
+            if pd.notna(mag) and mag is not None:
+                magnitude = Magnitude(mag=float(mag), magnitude_type=mag_type or "M")
+            else:
+                magnitude = None
+
+            event = Event(
+                resource_id=ResourceIdentifier(event_id),
+                origins=[origin],
+                magnitudes=[magnitude] if magnitude is not None else [],
+                picks=[],
+            )
+
+            creation_info = NLLOutput._json_to_creation_info(row.get("creation_info"))
+            if creation_info is not None:
+                event.creation_info = creation_info
+            comments = NLLOutput._json_to_comments(row.get("comments"))
+            if comments:
+                event.comments = comments
+
+            events.append(event)
+
+        return events
+
+    @staticmethod
+    def _arrivals_table_to_picks_and_arrivals(events_by_id: dict, arrivals_df: pd.DataFrame):
+        """
+        Create ObsPy Pick and Arrival objects from arrivals_table rows and attach
+        them to the corresponding Event's preferred/first origin. Events must
+        exist in events_by_id (keyed by event_id string).
+        """
+        from obspy.core.event import Arrival, Pick, ResourceIdentifier, WaveformStreamID
+
+        if arrivals_df is None or len(arrivals_df) == 0:
+            return
+        arrivals_df = arrivals_df.copy()
+        arrivals_df["arrival_time"] = pd.to_datetime(arrivals_df["arrival_time"], utc=True, errors="coerce")
+
+        for event_id, sub in arrivals_df.groupby("event_id"):
+            event = events_by_id.get(str(event_id))
+            if event is None:
+                continue
+            origin = None
+            if hasattr(event, "preferred_origin") and callable(event.preferred_origin):
+                origin = event.preferred_origin()
+            if origin is None:
+                origins = getattr(event, "origins", None) or []
+                origin = origins[0] if origins else None
+            if origin is None:
+                continue
+
+            picks = list(getattr(event, "picks", None) or [])
+            pick_ids_seen = set()
+
+            for _, row in sub.iterrows():
+                pick_id = str(row.get("pick_id", ""))
+                if not pick_id or pick_id in pick_ids_seen:
+                    continue
+                trace_id = str(row.get("trace_id", "") or "")
+                phase = NLLOutput._canonicalize_phase(row.get("phase"))
+                arrival_time = row.get("arrival_time")
+                if pd.isna(arrival_time):
+                    continue
+                at = UTCDateTime(arrival_time)
+
+                waveform_id = WaveformStreamID(seed_string=trace_id) if trace_id else None
+                pick = Pick(
+                    time=at,
+                    phase_hint=phase or "P",
+                    waveform_id=waveform_id,
+                    resource_id=ResourceIdentifier(pick_id),
+                )
+                creation_info = NLLOutput._json_to_creation_info(row.get("creation_info"))
+                if creation_info is not None:
+                    pick.creation_info = creation_info
+                comments = NLLOutput._json_to_comments(row.get("comments"))
+                if comments:
+                    pick.comments = comments
+                picks.append(pick)
+                pick_ids_seen.add(pick_id)
+
+                residual = row.get("residual", pd.NA)
+                weight = row.get("weight", pd.NA)
+                arr = Arrival(phase=phase or "P", pick_id=pick.resource_id)
+                if residual is not None and not pd.isna(residual):
+                    arr.time_residual = float(residual)
+                if weight is not None and not pd.isna(weight):
+                    arr.time_weight = float(weight)
+                origin.arrivals = getattr(origin, "arrivals", None) or []
+                origin.arrivals.append(arr)
+
+            event.picks = picks
+
+    @staticmethod
     def _backup_and_strip_origin_arrivals(catalog):
         """
         Temporarily clear ObsPy Origin.arrivals in-place (to shrink exported QuakeML),
@@ -2115,108 +2325,110 @@ class NLLOutput:
         else:
             return None
 
+    def read_catalog_table(self, t1=None, t2=None, where=None) -> pd.DataFrame:
+        """
+        Read catalog_table from HDF5 with optional time bounds and extra where expression.
+
+        Parameters
+        ----------
+        t1, t2 : UTCDateTime or str, optional
+            Inclusive time bounds on origin_time.
+        where : str, optional
+            Additional PyTables where expression (combined with & if time bounds given).
+
+        Returns
+        -------
+        pd.DataFrame
+            catalog_table rows (empty DataFrame if file or table missing).
+        """
+        if not os.path.exists(self.output_path):
+            return pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
+        try:
+            time_where = self._where_time_bounds("origin_time", t1, t2)
+            if time_where and where:
+                full_where = f"({time_where}) & ({where})"
+            else:
+                full_where = time_where or where
+            if full_where:
+                df = pd.read_hdf(self.output_path, key="catalog_table", where=full_where)
+            else:
+                df = pd.read_hdf(self.output_path, key="catalog_table")
+        except (KeyError, FileNotFoundError):
+            return pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
+        if len(df) > 0:
+            df["origin_time"] = pd.to_datetime(df["origin_time"], utc=True, errors="coerce")
+        return df
+
     def read(self, t1=None, t2=None, include_arrivals: bool = False):
         """
-        Read earthquake catalog from ASDF file or XML fallback with optional time filtering.
-        
+        Read earthquake catalog from HDF5 tables (catalog_table, optionally arrivals_table).
+
         Parameters
         ----------
         t1 : UTCDateTime or str, optional
-            Start time for filtering events
+            Start time for filtering events (origin_time).
         t2 : UTCDateTime or str, optional
-            End time for filtering events
+            End time for filtering events (origin_time).
         include_arrivals : bool, optional
-            If True and `arrivals_table` exists, attach ObsPy `Arrival` objects
-            (built from `arrivals_table` rows) onto each Event's preferred origin.
-            
+            If True, load arrivals_table and attach Picks/Arrivals to each Event's origin.
+
         Returns
         -------
         tuple of (VCatalog, dict) or (None, None)
-            - VCatalog: Earthquake catalog (None if file not found)
-            - dict: Processing metadata (None if not available)
-            
-        Notes
-        -----
-        Attempts to read from ASDF format first, falls back to XML+JSON format.
-        Converts results to VCatalog for compatibility with other tools.
-        Time filtering is applied to event origin times.
+            VCatalog and metadata dict, or (None, None) if file or catalog_table missing.
         """
         print(f"Reading NonLinLoc output from {self.output_path}")
-        
-        try:
-            import pyasdf
-            from obspy import read_events
-            
-            # Try to read from ASDF file
-            with pyasdf.ASDFDataSet(self.output_path, mode='r') as ds:
-                catalog = ds.events
-                
-            # Read metadata
-            try:
-                with h5py.File(self.output_path, 'r') as f:
-                    if 'metadata' in f:
-                        metadata_group = f['metadata']
-                        metadata = dict(metadata_group.attrs)
-                        # Convert bytes to strings if needed
-                        for key, value in metadata.items():
-                            if isinstance(value, bytes):
-                                metadata[key] = value.decode('utf-8')
-                    else:
-                        metadata = None
-            except:
-                print("WARNING: Could not load metadata from HDF5 file.")
-                metadata = None
-                
-        except (ImportError, Exception):
-            # Fallback to XML file
-            xml_path = self.output_path.replace('.h5', '.xml')
-            json_path = self.output_path.replace('.h5', '_metadata.json')
-            
-            if os.path.exists(xml_path):
-                from obspy import read_events
-                catalog = read_events(xml_path)
-                
-                # Try to read metadata
-                metadata = None
-                if os.path.exists(json_path):
-                    try:
-                        with open(json_path, 'r') as f:
-                            metadata = json.load(f)
-                    except:
-                        print("WARNING: Could not load metadata from JSON file.")
-                        
-            else:
-                print(f"ERROR: Neither ASDF file {self.output_path} nor XML file {xml_path} found.")
-                return None, None
-        
-        # Convert ObsPy Catalog to VCatalog
-        if catalog is not None:
-            from vdapseisutils import VCatalog
-            vcatalog = VCatalog(catalog)
-            
-            # Apply time filtering if requested
-            if t1 is not None or t2 is not None:
-                if isinstance(t1, str):
-                    t1 = UTCDateTime(t1) if t1 is not None else None
-                if isinstance(t2, str):
-                    t2 = UTCDateTime(t2) if t2 is not None else None
-                
-                vcatalog = vcatalog.filter(time=[t1, t2])
-                print(f"Time filtered catalog from {t1} to {t2}")
 
-            if include_arrivals:
-                try:
-                    arrivals_df = self.read_arrivals(events=vcatalog, t1=t1, t2=t2)
-                    vcatalog = self.attach_arrivals_to_catalog(vcatalog, arrivals_df)
-                except KeyError:
-                    # arrivals_table missing: leave catalog as-is (might still contain origins.arrivals).
-                    print(f"WARNING: arrivals_table missing in {self.output_path}; returning catalog without attached arrivals.")
-            
-            print(f"Events: {len(vcatalog):5d}\n")
-            
-            return vcatalog, metadata
-        else:
+        metadata = None
+        try:
+            with h5py.File(self.output_path, "r") as f:
+                if "metadata" in f:
+                    metadata_group = f["metadata"]
+                    metadata = dict(metadata_group.attrs)
+                    for key, value in list(metadata.items()):
+                        if isinstance(value, bytes):
+                            metadata[key] = value.decode("utf-8")
+        except (OSError, Exception):
+            print("WARNING: Could not open HDF5 file or read metadata.")
             return None, None
+
+        catalog_df = self.read_catalog_table(t1=t1, t2=t2)
+
+        if catalog_df.empty:
+            try:
+                with pd.HDFStore(self.output_path, "r") as store:
+                    if "catalog_table" not in store:
+                        print(f"ERROR: catalog_table not found in {self.output_path}")
+                        return None, None
+            except Exception:
+                return None, None
+            from vdapseisutils import VCatalog
+            from obspy import Catalog
+            print(f"Events:     0\n")
+            return VCatalog(Catalog()), metadata
+
+        events = self._catalog_table_to_events(catalog_df)
+        if include_arrivals:
+            try:
+                event_ids = [str(getattr(getattr(e, "resource_id", None), "id", "")) for e in events]
+                arrivals_df = self.read_arrivals(event_ids=event_ids, t1=t1, t2=t2)
+                events_by_id = {}
+                for ev in events:
+                    eid = getattr(getattr(ev, "resource_id", None), "id", None)
+                    if eid:
+                        events_by_id[str(eid)] = ev
+                self._arrivals_table_to_picks_and_arrivals(events_by_id, arrivals_df)
+            except KeyError:
+                print(f"WARNING: arrivals_table missing in {self.output_path}; returning catalog without arrivals.")
+
+        if t1 is not None or t2 is not None:
+            print(f"Time filtered catalog from {t1} to {t2}")
+
+        from obspy import Catalog
+        from vdapseisutils import VCatalog
+        vcatalog = VCatalog(Catalog(events=events))
+        print(f"Events: {len(vcatalog):5d}\n")
+        return vcatalog, metadata
 
     def export_catalog(
         self,
