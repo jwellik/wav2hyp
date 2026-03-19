@@ -17,6 +17,17 @@ Usage:
     catalog = processor.run(start_time, end_time)
 """
 
+import warnings
+
+# vdapseisutils optionally loads a Matplotlib rcparams file ("swarmmplrc") on import.
+# Some installations omit that file, which produces a noisy UserWarning. Suppress only
+# that specific warning message pattern.
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=r".*Could not load rcparams from .*swarmmplrc.*",
+)
+
 __version__ = "1.0.0"
 __author__ = "WAV2HYP Development Team"
 
