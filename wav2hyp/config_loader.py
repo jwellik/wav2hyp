@@ -74,6 +74,12 @@ def validate_config(config):
         config['output']['config_snapshot_dir'] = None  # None/false = disabled, non-empty string = subdir for per-day config snapshots
     if 'station_summary' not in config['output']:
         config['output']['station_summary'] = None  # None = disabled, string = filename e.g. station_summary.txt
+    if 'summary_table_period' not in config['output']:
+        config['output']['summary_table_period'] = '1h'  # One row per period in H5 summary tables
+    if 'summary_text_period' not in config['output']:
+        config['output']['summary_text_period'] = '1d'  # Resampling period for step summary text files
+    if 'station_summary_period' not in config['output']:
+        config['output']['station_summary_period'] = '1h'  # One row per (period, trace_id) in station summary
     
     # Validate waveform_client configuration
     waveform_config = config['waveform_client']
@@ -161,6 +167,9 @@ def get_global_variables(config):
         'associator_summary': config['output'].get('associator_summary', None),
         'locator_summary': config['output'].get('locator_summary', None),
         'station_summary': config['output'].get('station_summary', None),
+        'summary_table_period': config['output'].get('summary_table_period', '1h'),
+        'summary_text_period': config['output'].get('summary_text_period', '1d'),
+        'station_summary_period': config['output'].get('station_summary_period', '1h'),
     }
 
 

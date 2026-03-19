@@ -44,6 +44,10 @@ output:
   locator_summary: "sthelens_3_locator_summary.txt"
   # Per-channel summary: set to filename (e.g. "station_summary.txt") to enable; null or omit to disable
   station_summary: "sthelens_station_summary.txt"
+  # Summary periods (time strings: '1h', '1d', '10T' = 10 min). H5 = row granularity; text = resample when writing CSV.
+  summary_table_period: "1h"
+  summary_text_period: "1d"
+  station_summary_period: "1h"
   # Per-day config snapshot: set to a subdir name (e.g. "config_snapshots") to enable; false or omit to disable
   config_snapshot_dir: "config_snapshots"
 
