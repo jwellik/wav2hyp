@@ -6,6 +6,7 @@ statistics and timing information. Summary text files can be written from HDF5
 summary tables (single source of truth).
 """
 
+import logging
 import os
 import csv
 import threading
@@ -16,8 +17,47 @@ import pandas as pd
 
 from obspy import UTCDateTime
 
-from .io import PickListX, DetectionListX
+from .io import PickListX, DetectionListX, _parse_summary_date
 from .stations import station_from_trace_id
+
+_log = logging.getLogger("wav2hyp")
+
+
+def date_already_processed_for_stage(hdf5_path: str, start_time, end_time) -> bool:
+    """
+    Return True if the stage's HDF5 summary table has at least one row whose date falls in [start_time, end_time].
+
+    Used to decide whether to skip running a stage for a chunk when --overwrite is not set.
+    The summary table is the single source of truth (summary .txt is derived from it).
+
+    Parameters
+    ----------
+    hdf5_path : str
+        Path to the stage's HDF5 file (picker, associator, or locator).
+    start_time, end_time
+        UTCDateTime or str. Chunk time range; summary rows are parsed and compared to this range.
+
+    Returns
+    -------
+    bool
+        True if any summary row date falls within [start_time, end_time], else False.
+    """
+    path = Path(hdf5_path)
+    if not path.exists():
+        return False
+    try:
+        df = pd.read_hdf(hdf5_path, key="summary")
+    except (KeyError, FileNotFoundError):
+        return False
+    if df is None or len(df) == 0 or "date" not in df.columns:
+        return False
+    ts_lo = pd.Timestamp(UTCDateTime(start_time).datetime, tz="UTC")
+    ts_hi = pd.Timestamp(UTCDateTime(end_time).datetime, tz="UTC")
+    for _, row in df.iterrows():
+        ts = _parse_summary_date(row.get("date"))
+        if ts is not None and ts_lo <= ts <= ts_hi:
+            return True
+    return False
 
 
 def infer_step_from_hdf5(hdf5_path: str) -> str:
@@ -61,11 +101,15 @@ def infer_step_from_hdf5(hdf5_path: str) -> str:
     )
 
 
-def write_summary_txt_from_hdf5(hdf5_path: str, summary_txt_path: str, step: str) -> None:
+def write_summary_txt_from_hdf5(
+    hdf5_path: str,
+    summary_txt_path: str,
+    step: str,
+    summary_text_period: Optional[str] = None,
+) -> None:
     """
     Read the 'summary' table from an HDF5 file and write it to a CSV summary text file.
-    Used so that *_picker_summary.txt, *_associator_summary.txt, *_locator_summary.txt
-    are driven by the HDF5 summary tables.
+    Optionally resample to a coarser period (e.g. '1d') before writing.
 
     Parameters
     ----------
@@ -75,6 +119,8 @@ def write_summary_txt_from_hdf5(hdf5_path: str, summary_txt_path: str, step: str
         Path to the output CSV summary file.
     step : str
         One of 'picker', 'associator', 'locator' (determines column order).
+    summary_text_period : str, optional
+        Time string for resampling (e.g. '1d', '1h'). If None, no resampling.
     """
     path = Path(hdf5_path)
     if not path.exists():
@@ -85,19 +131,76 @@ def write_summary_txt_from_hdf5(hdf5_path: str, summary_txt_path: str, step: str
         return
     if df is None or len(df) == 0:
         return
-    out = Path(summary_txt_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
+    _log.info("Loaded summary from %s, %d rows", hdf5_path, len(df))
+
     if step == 'picker':
         cols = ['date', 'config', 'ncha', 'nsamp', 'pick_model', 'np', 'ns', 'npicks', 'ndetections',
                 'p_thresh', 's_thresh', 'd_thresh', 't_exec_pick', 't_updated_pick']
+        sum_cols = ['ncha', 'nsamp', 'np', 'ns', 'npicks', 'ndetections']
+        first_cols = ['config', 'pick_model', 'p_thresh', 's_thresh', 'd_thresh']
+        last_cols = ['t_updated_pick']
     elif step == 'associator':
         cols = ['date', 'config', 'assoc_method', 'nassignments', 'nevents', 't_exec_assoc', 't_updated_assoc']
+        sum_cols = ['nassignments', 'nevents']
+        first_cols = ['config', 'assoc_method']
+        last_cols = ['t_updated_assoc']
     elif step == 'locator':
         cols = ['date', 'config', 'loc_method', 'nlocations', 't_exec_loc', 't_update_loc']
+        sum_cols = ['nlocations']
+        first_cols = ['config', 'loc_method']
+        last_cols = ['t_update_loc']
     else:
         raise ValueError(f"Unknown step: {step}")
+
+    if summary_text_period:
+        from ..core import parse_time_string
+        period_seconds = parse_time_string(summary_text_period)
+        df = df.copy()
+        df['_ts'] = df['date'].apply(_parse_summary_date)
+        df = df.dropna(subset=['_ts'])
+        if len(df) == 0:
+            out = Path(summary_txt_path)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            cols_out = [c for c in cols if c in df.columns]
+            df[cols_out].to_csv(out, index=False) if cols_out else out.write_text("")
+            _log.info("Wrote summary to %s, 0 rows", summary_txt_path)
+            return
+        df = df.set_index('_ts')
+        agg_map = {}
+        for c in sum_cols:
+            if c in df.columns:
+                agg_map[c] = 'sum'
+        for c in first_cols:
+            if c in df.columns and c not in agg_map:
+                agg_map[c] = 'first'
+        for c in last_cols:
+            if c in df.columns and c not in agg_map:
+                agg_map[c] = 'last'
+        if step == 'picker' and 't_exec_pick' in df.columns:
+            agg_map['t_exec_pick'] = 'sum'
+        elif step == 'associator' and 't_exec_assoc' in df.columns:
+            agg_map['t_exec_assoc'] = 'sum'
+        elif step == 'locator' and 't_exec_loc' in df.columns:
+            agg_map['t_exec_loc'] = 'sum'
+        resampled = df.resample(pd.Timedelta(seconds=period_seconds)).agg(agg_map)
+        resampled = resampled.dropna(how='all')
+        if len(resampled) == 0:
+            df = resampled.reset_index(drop=True)
+        else:
+            if period_seconds >= 86400:
+                resampled['date'] = [t.strftime('%Y/%m/%d') for t in resampled.index]
+            elif period_seconds >= 3600:
+                resampled['date'] = [t.strftime('%Y/%m/%dT%H') for t in resampled.index]
+            else:
+                resampled['date'] = [t.strftime('%Y/%m/%dT%H:%M:%S') for t in resampled.index]
+            df = resampled.reset_index(drop=True)
+        _log.info("Resampled summary to period %s, %d rows", summary_text_period, len(df))
+
     cols = [c for c in cols if c in df.columns]
+    out = Path(summary_txt_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
     df[cols].to_csv(out, index=False)
+    _log.info("Wrote summary to %s", summary_txt_path)
 
 
 def append_station_summary_rows(
@@ -108,73 +211,135 @@ def append_station_summary_rows(
     picks,
     detections,
     assignments_df: Optional[pd.DataFrame],
+    arrivals_df: Optional[pd.DataFrame] = None,
+    step: str = "picker",
 ) -> None:
     """
-    Append one row per (date, channel_id) to station_summary.txt.
-    Columns: date, channel_id, nsamples, ncha, np, ns, nd, nassign, nassoc, nevents.
-    Requires stream (Obspy Stream) for nsamples; picks/detections for np, ns, nd;
-    assignments_df for nassign, nassoc, nevents per station (mapped to channel via trace_id).
+    Write or update one row per (date_str, trace_id) in station summary file.
+    Columns: date, trace_id (NET.STA.LOC.CHA), nsamples, ncha, np, ns, nd, nassign, nassoc, nevents.
+    step: 'picker' | 'associator' | 'locator'. Only picker requires stream; associator/locator merge into existing rows.
+    For locator, nevents = unique event count from arrivals_df per trace_id (when arrivals_df given).
     """
-    if stream is None or len(stream) == 0:
-        return
+    header = ['date', 'trace_id', 'nsamples', 'ncha', 'np', 'ns', 'nd', 'nassign', 'nassoc', 'nevents']
     path = Path(base_output_dir) / summary_filename
     path.parent.mkdir(parents=True, exist_ok=True)
-    header = ['date', 'channel_id', 'nsamples', 'ncha', 'np', 'ns', 'nd', 'nassign', 'nassoc', 'nevents']
-    write_header = not path.exists()
-    channel_ids = sorted(set(tr.id for tr in stream))
-    # Per-channel: nsamples
-    nsamples_per_ch = {ch_id: sum(len(tr.data) for tr in stream if tr.id == ch_id) for ch_id in channel_ids}
-    # Per-channel: np, ns, nd from picks and detections
+
+    # Collect trace_ids: from stream, or from picks/assignments/arrivals when stream is None
+    trace_ids = set()
+    if stream is not None and len(stream) > 0:
+        trace_ids.update(tr.id for tr in stream)
+    if picks is not None and len(picks) > 0:
+        try:
+            pick_df = PickListX(picks).to_dataframe()
+            if 'trace_id' in pick_df.columns:
+                trace_ids.update(pick_df['trace_id'].astype(str).unique())
+        except Exception:
+            pass
+    if assignments_df is not None and len(assignments_df) > 0 and 'trace_id' in assignments_df.columns:
+        trace_ids.update(assignments_df['trace_id'].astype(str).unique())
+    if assignments_df is not None and len(assignments_df) > 0 and 'station_id' in assignments_df.columns and not trace_ids:
+        for sta in assignments_df['station_id'].unique():
+            trace_ids.add(str(sta))
+    if arrivals_df is not None and len(arrivals_df) > 0 and 'trace_id' in arrivals_df.columns:
+        trace_ids.update(arrivals_df['trace_id'].astype(str).unique())
+    if not trace_ids:
+        return
+
+    trace_ids = sorted(trace_ids)
+
+    nsamples_per_ch = {}
+    if stream is not None and len(stream) > 0:
+        nsamples_per_ch = {tr.id: sum(len(t.data) for t in stream if t.id == tr.id) for tr in stream}
     np_per_ch = {}
     ns_per_ch = {}
     nd_per_ch = {}
     if picks is not None and len(picks) > 0:
         try:
             pick_df = PickListX(picks).to_dataframe()
-            for trace_id in pick_df['trace_id'].unique():
-                sub = pick_df[pick_df['trace_id'] == trace_id]
-                np_per_ch[trace_id] = int((sub['phase'] == 'P').sum())
-                ns_per_ch[trace_id] = int((sub['phase'] == 'S').sum())
+            for tid in pick_df['trace_id'].astype(str).unique():
+                sub = pick_df[pick_df['trace_id'].astype(str) == tid]
+                np_per_ch[tid] = int((sub['phase'] == 'P').sum())
+                ns_per_ch[tid] = int((sub['phase'] == 'S').sum())
         except Exception:
             pass
     if detections is not None and len(detections) > 0:
         try:
             det_df = DetectionListX(detections).to_dataframe()
-            for trace_id in det_df['trace_id'].unique():
-                nd_per_ch[trace_id] = int(len(det_df[det_df['trace_id'] == trace_id]))
+            for tid in det_df['trace_id'].astype(str).unique():
+                nd_per_ch[tid] = int(len(det_df[det_df['trace_id'].astype(str) == tid]))
         except Exception:
             pass
-    # Per-station: nassign, nevents from assignments_df (station_id, event_idx)
-    nassign_per_sta = {}
-    nevents_per_sta = {}
-    if assignments_df is not None and len(assignments_df) > 0 and 'station_id' in assignments_df.columns and 'event_idx' in assignments_df.columns:
-        for sta in assignments_df['station_id'].unique():
-            sub = assignments_df[assignments_df['station_id'] == sta]
-            nassign_per_sta[str(sta)] = int(len(sub))
-            nevents_per_sta[str(sta)] = int(sub['event_idx'].nunique())
-    # Build rows: one per channel_id
-    rows = []
-    for ch_id in channel_ids:
-        sta = station_from_trace_id(ch_id)
-        rows.append({
+    nassign_per_trace = {}
+    nassoc_per_trace = {}
+    nevents_per_trace = {}
+    if assignments_df is not None and len(assignments_df) > 0:
+        if 'trace_id' in assignments_df.columns and 'event_idx' in assignments_df.columns:
+            for tid in assignments_df['trace_id'].astype(str).unique():
+                sub = assignments_df[assignments_df['trace_id'].astype(str) == tid]
+                nassign_per_trace[tid] = int(len(sub))
+                nassoc_per_trace[tid] = int(sub['event_idx'].nunique())
+                nevents_per_trace[tid] = int(sub['event_idx'].nunique())
+        elif 'station_id' in assignments_df.columns and 'event_idx' in assignments_df.columns:
+            for sta in assignments_df['station_id'].unique():
+                sub = assignments_df[assignments_df['station_id'] == sta]
+                nassign = int(len(sub))
+                nevents = int(sub['event_idx'].nunique())
+                for tid in trace_ids:
+                    if station_from_trace_id(tid) == str(sta):
+                        nassign_per_trace[tid] = nassign
+                        nassoc_per_trace[tid] = nevents
+                        nevents_per_trace[tid] = nevents
+    if arrivals_df is not None and len(arrivals_df) > 0 and 'trace_id' in arrivals_df.columns and 'event_id' in arrivals_df.columns:
+        for tid in arrivals_df['trace_id'].astype(str).unique():
+            nevents_per_trace[tid] = int(arrivals_df[arrivals_df['trace_id'].astype(str) == tid]['event_id'].nunique())
+
+    new_rows = []
+    for tid in trace_ids:
+        sta = station_from_trace_id(tid)
+        row = {
             'date': date_str,
-            'channel_id': ch_id,
-            'nsamples': nsamples_per_ch.get(ch_id, 0),
-            'ncha': 1,
-            'np': np_per_ch.get(ch_id, 0),
-            'ns': ns_per_ch.get(ch_id, 0),
-            'nd': nd_per_ch.get(ch_id, 0),
-            'nassign': nassign_per_sta.get(sta, 0),
-            'nassoc': nassign_per_sta.get(sta, 0),
-            'nevents': nevents_per_sta.get(sta, 0),
-        })
-    df = pd.DataFrame(rows)
-    with open(path, 'a', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=header)
-        if write_header:
-            writer.writeheader()
-        for _, row in df.iterrows():
-            writer.writerow(row.to_dict())
+            'trace_id': tid,
+            'nsamples': nsamples_per_ch.get(tid, 0),
+            'ncha': 1 if stream else 0,
+            'np': np_per_ch.get(tid, 0),
+            'ns': ns_per_ch.get(tid, 0),
+            'nd': nd_per_ch.get(tid, 0),
+            'nassign': nassign_per_trace.get(tid, 0),
+            'nassoc': nassoc_per_trace.get(tid, 0),
+            'nevents': nevents_per_trace.get(tid, 0),
+        }
+        new_rows.append(row)
+
+    existing_df = None
+    if path.exists():
+        try:
+            existing_df = pd.read_csv(path)
+            _log.info("Loaded station summary from %s, %d rows", path, len(existing_df))
+            if 'trace_id' not in existing_df.columns and 'channel_id' in existing_df.columns:
+                existing_df['trace_id'] = existing_df['channel_id']
+        except Exception:
+            pass
+
+    rows_by_key = {}
+    if existing_df is not None and len(existing_df) > 0 and 'date' in existing_df.columns and ('trace_id' in existing_df.columns or 'channel_id' in existing_df.columns):
+        tid_col = 'trace_id' if 'trace_id' in existing_df.columns else 'channel_id'
+        for _, r in existing_df.iterrows():
+            k = (str(r['date']), str(r[tid_col]))
+            row_dict = {c: r.get(c, 0) for c in header if c in r}
+            if 'trace_id' not in row_dict and tid_col in r:
+                row_dict['trace_id'] = str(r[tid_col])
+            rows_by_key[k] = row_dict
+    for row in new_rows:
+        k = (str(row['date']), str(row['trace_id']))
+        if k in rows_by_key and step != 'picker':
+            for col in ['nassign', 'nassoc', 'nevents']:
+                rows_by_key[k][col] = row[col]
+        else:
+            rows_by_key[k] = row
+    out_df = pd.DataFrame(list(rows_by_key.values()), columns=header)
+    out_df = out_df.sort_values(['date', 'trace_id']).reset_index(drop=True)
+    out_df.to_csv(path, index=False)
+    _log.info("Wrote station summary to %s, %d rows", path, len(out_df))
 
 
 class SummaryExporter:
