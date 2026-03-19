@@ -89,11 +89,59 @@ except ModuleNotFoundError:
 
         def __len__(self):
             return len(self._detections)
+import logging
 import pandas as pd
 import numpy as np
 import os
 import h5py
 import json
+from datetime import datetime as _dt, timezone as _tz
+
+_log = logging.getLogger("wav2hyp")
+
+
+def _parse_summary_date(date_val):
+    """Parse summary table 'date' value to pandas Timestamp (UTC) or None."""
+    if pd.isna(date_val):
+        return None
+    s = str(date_val).strip()
+    if not s:
+        return None
+    try:
+        for fmt in (
+            "%Y/%m/%dT%H:%M:%S",
+            "%Y/%m/%dT%H:%M",
+            "%Y/%m/%dT%H",
+            "%Y/%m/%d",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d",
+        ):
+            try:
+                dt = _dt.strptime(s, fmt)
+                return pd.Timestamp(dt.replace(tzinfo=_tz.utc))
+            except ValueError:
+                continue
+        return pd.to_datetime(s, utc=True)
+    except Exception:
+        return None
+
+
+def _summary_df_drop_periods_in_range(summary_df, t1, t2):
+    """Return summary_df with rows whose 'date' falls in [t1, t2] removed."""
+    if summary_df is None or len(summary_df) == 0:
+        return summary_df
+    if t1 is None or t2 is None:
+        return summary_df
+    ts_lo = pd.Timestamp(UTCDateTime(t1).datetime, tz="UTC")
+    ts_hi = pd.Timestamp(UTCDateTime(t2).datetime, tz="UTC")
+    keep = []
+    for idx, row in summary_df.iterrows():
+        ts = _parse_summary_date(row.get("date"))
+        if ts is None:
+            keep.append(idx)
+        elif ts < ts_lo or ts > ts_hi:
+            keep.append(idx)
+    return summary_df.loc[keep].copy() if keep else pd.DataFrame(columns=summary_df.columns)
 
 
 class PickListX(SBPickList):
@@ -414,9 +462,9 @@ class EQTOutput:
             List of earthquake detections
         metadata : dict
             Processing metadata to store as file attributes
-        summary_stats : dict, optional
-            If provided, one row is appended to the 'summary' table and
-            histogram rows to 'pick_peak_histogram'. Keys: date, config, ncha,
+        summary_stats : dict or list of dict, optional
+            If provided, one or more rows are appended to the 'summary' table and
+            histogram rows to 'pick_peak_histogram'. Each dict keys: date, config, ncha,
             nsamp, pick_model, np, ns, npicks, ndetections, p_thresh, s_thresh,
             d_thresh, t_exec_pick, t_updated_pick (t_updated_pick optional).
 
@@ -433,6 +481,7 @@ class EQTOutput:
         if summary_stats is not None and self.time_range is not None and os.path.exists(self.output_path):
             try:
                 existing_summary_df = pd.read_hdf(self.output_path, key='summary')
+                _log.info("Loaded summary from %s, %d rows", self.output_path, len(existing_summary_df))
             except (KeyError, FileNotFoundError):
                 pass
             try:
@@ -493,44 +542,56 @@ class EQTOutput:
 
         # Write summary and pick_peak_histogram tables when summary_stats provided
         if summary_stats is not None:
+            stats_list = summary_stats if isinstance(summary_stats, (list, tuple)) else [summary_stats]
             self._write_picker_summary_and_histogram(
-                summary_stats, picks_df, detections_df,
+                stats_list, picks_df, detections_df,
                 existing_summary_df=existing_summary_df,
                 existing_hist_df=existing_hist_df,
             )
 
-    def _write_picker_summary_and_histogram(self, summary_stats, picks_df, detections_df,
+    def _write_picker_summary_and_histogram(self, stats_list, picks_df, detections_df,
                                            existing_summary_df=None, existing_hist_df=None):
-        """Append one row to summary table and histogram rows to pick_peak_histogram."""
-        from datetime import datetime
-        date_str = summary_stats.get('date', '')
-        if not date_str:
+        """Append one or more rows to summary table and histogram rows to pick_peak_histogram."""
+        rows = []
+        for summary_stats in stats_list:
+            date_str = summary_stats.get('date', '')
+            if not date_str:
+                continue
+            if 't_updated_pick' not in summary_stats:
+                summary_stats = {**summary_stats, 't_updated_pick': _dt.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
+            rows.append({
+                'date': summary_stats.get('date'),
+                'config': summary_stats.get('config', ''),
+                'ncha': summary_stats.get('ncha', 0),
+                'nsamp': summary_stats.get('nsamp', 0),
+                'pick_model': summary_stats.get('pick_model', ''),
+                'np': summary_stats.get('np', 0),
+                'ns': summary_stats.get('ns', 0),
+                'npicks': summary_stats.get('npicks', 0),
+                'ndetections': summary_stats.get('ndetections', 0),
+                'p_thresh': summary_stats.get('p_thresh', 0.0),
+                's_thresh': summary_stats.get('s_thresh', 0.0),
+                'd_thresh': summary_stats.get('d_thresh', 0.0),
+                't_exec_pick': summary_stats.get('t_exec_pick', 0.0),
+                't_updated_pick': summary_stats.get('t_updated_pick', ''),
+            })
+        if not rows:
             return
-        if 't_updated_pick' not in summary_stats:
-            summary_stats = {**summary_stats, 't_updated_pick': datetime.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
-        summary_row = pd.DataFrame([{
-            'date': summary_stats.get('date'),
-            'config': summary_stats.get('config', ''),
-            'ncha': summary_stats.get('ncha', 0),
-            'nsamp': summary_stats.get('nsamp', 0),
-            'pick_model': summary_stats.get('pick_model', ''),
-            'np': summary_stats.get('np', 0),
-            'ns': summary_stats.get('ns', 0),
-            'npicks': summary_stats.get('npicks', 0),
-            'ndetections': summary_stats.get('ndetections', 0),
-            'p_thresh': summary_stats.get('p_thresh', 0.0),
-            's_thresh': summary_stats.get('s_thresh', 0.0),
-            'd_thresh': summary_stats.get('d_thresh', 0.0),
-            't_exec_pick': summary_stats.get('t_exec_pick', 0.0),
-            't_updated_pick': summary_stats.get('t_updated_pick', ''),
-        }])
-        if existing_summary_df is not None:
-            existing = existing_summary_df[existing_summary_df['date'].astype(str) != str(date_str)]
+        summary_row = pd.DataFrame(rows)
+        if existing_summary_df is not None and self.time_range is not None:
+            existing = _summary_df_drop_periods_in_range(
+                existing_summary_df, self.time_range[0], self.time_range[1]
+            )
             summary_df = pd.concat([existing, summary_row], ignore_index=True)
+        elif existing_summary_df is not None:
+            summary_df = pd.concat([existing_summary_df, summary_row], ignore_index=True)
         else:
             try:
                 existing = pd.read_hdf(self.output_path, key='summary')
-                existing = existing[existing['date'].astype(str) != str(date_str)]
+                if self.time_range is not None:
+                    existing = _summary_df_drop_periods_in_range(
+                        existing, self.time_range[0], self.time_range[1]
+                    )
                 summary_df = pd.concat([existing, summary_row], ignore_index=True)
             except (KeyError, FileNotFoundError):
                 summary_df = summary_row
@@ -538,8 +599,11 @@ class EQTOutput:
             if 'summary' in store:
                 del store['summary']
             store.append('summary', summary_df, format='table')
+        _log.info("Wrote summary to %s, %d rows", self.output_path, len(summary_df))
         # Histogram: peak_value binned to 2 decimals, per station and phase (P, S, D)
+        # Use first period date for histogram (one histogram block per write)
         from .stations import station_from_trace_id
+        hist_date_str = rows[0]['date'] if rows else ''
 
         hist_frames = []
 
@@ -560,7 +624,7 @@ class EQTOutput:
                         .size()
                         .reset_index(name='count')
                     )
-                    picks_hist['date'] = date_str
+                    picks_hist['date'] = hist_date_str
                     hist_frames.append(picks_hist)
 
         # Detections: treated as phase 'D'
@@ -577,7 +641,7 @@ class EQTOutput:
                     .reset_index(name='count')
                 )
                 det_hist['phase'] = 'D'
-                det_hist['date'] = date_str
+                det_hist['date'] = hist_date_str
                 hist_frames.append(det_hist)
 
         if hist_frames:
@@ -586,12 +650,22 @@ class EQTOutput:
         else:
             new_hist_df = pd.DataFrame(columns=['date', 'station_id', 'phase', 'peak_value_bin', 'count'])
         if existing_hist_df is not None:
-            existing_hist = existing_hist_df[existing_hist_df['date'].astype(str) != str(date_str)]
+            if self.time_range is not None:
+                existing_hist = _summary_df_drop_periods_in_range(
+                    existing_hist_df, self.time_range[0], self.time_range[1]
+                )
+            else:
+                existing_hist = existing_hist_df[existing_hist_df['date'].astype(str) != str(hist_date_str)]
             hist_df = pd.concat([existing_hist, new_hist_df], ignore_index=True)
         else:
             try:
                 existing_hist = pd.read_hdf(self.output_path, key='pick_peak_histogram')
-                existing_hist = existing_hist[existing_hist['date'].astype(str) != str(date_str)]
+                if self.time_range is not None:
+                    existing_hist = _summary_df_drop_periods_in_range(
+                        existing_hist, self.time_range[0], self.time_range[1]
+                    )
+                else:
+                    existing_hist = existing_hist[existing_hist['date'].astype(str) != str(hist_date_str)]
                 hist_df = pd.concat([existing_hist, new_hist_df], ignore_index=True)
             except (KeyError, FileNotFoundError):
                 hist_df = new_hist_df
@@ -663,6 +737,89 @@ class EQTOutput:
         print(f"Removing {picks_removed} picks and {detections_removed} detections within time range. "
               f"Keeping {len(picks_filtered)} picks and {len(detections_filtered)} detections outside time range.")
         return picks_filtered, detections_filtered
+
+    def remove_range(self, t1, t2):
+        """
+        Remove all picker data (picks, detections, summary, pick_peak_histogram) for the time range [t1, t2].
+        Used by overwrite cleanup before re-running the picker. Writes back remaining data and preserves metadata.
+
+        Returns
+        -------
+        dict
+            Counts for logging: picks_removed, detections_removed, summary_rows_removed, histogram_rows_removed.
+        """
+        if not os.path.exists(self.output_path):
+            return {"picks_removed": 0, "detections_removed": 0, "summary_rows_removed": 0, "histogram_rows_removed": 0}
+        t1, t2 = UTCDateTime(t1), UTCDateTime(t2)
+        picks_f, detections_f = self._get_filtered_existing_data(t1, t2)
+        try:
+            with pd.HDFStore(self.output_path, "r") as store:
+                n_picks_before = store.get_storer("picks").table.nrows if "picks" in store else 0
+                n_det_before = store.get_storer("detections").table.nrows if "detections" in store else 0
+        except Exception:
+            n_picks_before = len(picks_f)
+            n_det_before = len(detections_f)
+        picks_removed = n_picks_before - len(picks_f)
+        detections_removed = n_det_before - len(detections_f)
+
+        existing_summary_df = None
+        existing_hist_df = None
+        try:
+            existing_summary_df = pd.read_hdf(self.output_path, key="summary")
+        except (KeyError, FileNotFoundError):
+            pass
+        try:
+            existing_hist_df = pd.read_hdf(self.output_path, key="pick_peak_histogram")
+        except (KeyError, FileNotFoundError):
+            pass
+        n_summary_before = len(existing_summary_df) if existing_summary_df is not None else 0
+        n_hist_before = len(existing_hist_df) if existing_hist_df is not None else 0
+        summary_df = _summary_df_drop_periods_in_range(existing_summary_df or pd.DataFrame(), t1, t2)
+        hist_df = _summary_df_drop_periods_in_range(existing_hist_df or pd.DataFrame(), t1, t2)
+        summary_rows_removed = n_summary_before - len(summary_df)
+        histogram_rows_removed = n_hist_before - len(hist_df)
+
+        with h5py.File(self.output_path, "r") as f:
+            metadata = json.loads(f.attrs.get("metadata", "{}"))
+
+        os.remove(self.output_path)
+        os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
+        if len(picks_f) > 0:
+            picks_f.to_hdf(
+                self.output_path, key="picks", mode="w", format="table",
+                data_columns=self.PICKS_DATA_COLUMNS
+            )
+        else:
+            pd.DataFrame(columns=self.PICKS_DATA_COLUMNS + ["trace_id", "start_time", "end_time", "phase"]).to_hdf(
+                self.output_path, key="picks", mode="w", format="table", data_columns=self.PICKS_DATA_COLUMNS
+            )
+        if len(detections_f) > 0:
+            detections_f.to_hdf(
+                self.output_path, key="detections", mode="a", format="table",
+                data_columns=self.DETECTIONS_DATA_COLUMNS
+            )
+        else:
+            pd.DataFrame(
+                columns=list(self.DETECTIONS_DATA_COLUMNS) + ["trace_id", "start_time", "end_time"]
+            ).to_hdf(
+                self.output_path, key="detections", mode="a", format="table", data_columns=self.DETECTIONS_DATA_COLUMNS
+            )
+        with h5py.File(self.output_path, "a") as f:
+            f.attrs["metadata"] = json.dumps(metadata)
+        with pd.HDFStore(self.output_path, "a") as store:
+            if "summary" in store:
+                del store["summary"]
+            if len(summary_df) > 0:
+                store.append("summary", summary_df, format="table")
+            if "pick_peak_histogram" in store:
+                del store["pick_peak_histogram"]
+            if len(hist_df) > 0:
+                store.append("pick_peak_histogram", hist_df, format="table")
+        _log.info(
+            "Overwrite cleanup picker: removed %d picks, %d detections, %d summary rows, %d histogram rows for range %s to %s",
+            picks_removed, detections_removed, summary_rows_removed, histogram_rows_removed, t1, t2,
+        )
+        return {"picks_removed": picks_removed, "detections_removed": detections_removed, "summary_rows_removed": summary_rows_removed, "histogram_rows_removed": histogram_rows_removed}
 
     def _append_peak_value_where(self, where_expr, min_peak_value):
         """Append (peak_value >= min_peak_value) to a where expression. peak_value is an indexed data_column."""
@@ -948,8 +1105,8 @@ class PyOctoOutput:
             DataFrame containing phase-to-event assignments (see class docstring for column details)
         metadata : dict
             Processing metadata to store as file attributes
-        summary_stats : dict, optional
-            If provided, one row is appended to the 'summary' table. Keys: date, config,
+        summary_stats : dict or list of dict, optional
+            If provided, one or more rows are appended to the 'summary' table. Keys: date, config,
             assoc_method, nassignments, nevents, t_exec_assoc, t_updated_assoc (optional).
             
         Notes
@@ -963,6 +1120,7 @@ class PyOctoOutput:
         if summary_stats is not None and self.time_range is not None and os.path.exists(self.output_path):
             try:
                 existing_summary_df = pd.read_hdf(self.output_path, key='summary')
+                _log.info("Loaded summary from %s, %d rows", self.output_path, len(existing_summary_df))
             except (KeyError, FileNotFoundError):
                 pass
 
@@ -1001,32 +1159,44 @@ class PyOctoOutput:
             f.attrs['metadata'] = json.dumps(metadata)
 
         if summary_stats is not None:
-            self._write_associator_summary(summary_stats, existing_summary_df=existing_summary_df)
+            stats_list = summary_stats if isinstance(summary_stats, (list, tuple)) else [summary_stats]
+            self._write_associator_summary(stats_list, existing_summary_df=existing_summary_df)
 
-    def _write_associator_summary(self, summary_stats, existing_summary_df=None):
-        """Append one row to summary table."""
-        from datetime import datetime
-        date_str = summary_stats.get('date', '')
-        if not date_str:
+    def _write_associator_summary(self, stats_list, existing_summary_df=None):
+        """Append one or more rows to summary table."""
+        rows = []
+        for summary_stats in stats_list:
+            date_str = summary_stats.get('date', '')
+            if not date_str:
+                continue
+            if 't_updated_assoc' not in summary_stats:
+                summary_stats = {**summary_stats, 't_updated_assoc': _dt.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
+            rows.append({
+                'date': summary_stats.get('date'),
+                'config': summary_stats.get('config', ''),
+                'assoc_method': summary_stats.get('assoc_method', ''),
+                'nassignments': summary_stats.get('nassignments', 0),
+                'nevents': summary_stats.get('nevents', 0),
+                't_exec_assoc': summary_stats.get('t_exec_assoc', 0.0),
+                't_updated_assoc': summary_stats.get('t_updated_assoc', ''),
+            })
+        if not rows:
             return
-        if 't_updated_assoc' not in summary_stats:
-            summary_stats = {**summary_stats, 't_updated_assoc': datetime.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
-        summary_row = pd.DataFrame([{
-            'date': summary_stats.get('date'),
-            'config': summary_stats.get('config', ''),
-            'assoc_method': summary_stats.get('assoc_method', ''),
-            'nassignments': summary_stats.get('nassignments', 0),
-            'nevents': summary_stats.get('nevents', 0),
-            't_exec_assoc': summary_stats.get('t_exec_assoc', 0.0),
-            't_updated_assoc': summary_stats.get('t_updated_assoc', ''),
-        }])
-        if existing_summary_df is not None:
-            existing = existing_summary_df[existing_summary_df['date'].astype(str) != str(date_str)]
+        summary_row = pd.DataFrame(rows)
+        if existing_summary_df is not None and self.time_range is not None:
+            existing = _summary_df_drop_periods_in_range(
+                existing_summary_df, self.time_range[0], self.time_range[1]
+            )
             summary_df = pd.concat([existing, summary_row], ignore_index=True)
+        elif existing_summary_df is not None:
+            summary_df = pd.concat([existing_summary_df, summary_row], ignore_index=True)
         else:
             try:
                 existing = pd.read_hdf(self.output_path, key='summary')
-                existing = existing[existing['date'].astype(str) != str(date_str)]
+                if self.time_range is not None:
+                    existing = _summary_df_drop_periods_in_range(
+                        existing, self.time_range[0], self.time_range[1]
+                    )
                 summary_df = pd.concat([existing, summary_row], ignore_index=True)
             except (KeyError, FileNotFoundError):
                 summary_df = summary_row
@@ -1034,6 +1204,7 @@ class PyOctoOutput:
             if 'summary' in store:
                 del store['summary']
             store.append('summary', summary_df, format='table')
+        _log.info("Wrote summary to %s, %d rows", self.output_path, len(summary_df))
 
     def _get_filtered_existing_data(self, t1, t2):
         """
@@ -1114,6 +1285,73 @@ class PyOctoOutput:
             assignments_filtered = assignments_df
         
         return events_filtered, assignments_filtered
+
+    def remove_range(self, t1, t2):
+        """
+        Remove all associator data (events, assignments, summary) for the time range [t1, t2].
+        Used by overwrite cleanup before re-running the associator.
+
+        Returns
+        -------
+        dict
+            Counts for logging: events_removed, assignments_removed, summary_rows_removed.
+        """
+        if not os.path.exists(self.output_path):
+            return {"events_removed": 0, "assignments_removed": 0, "summary_rows_removed": 0}
+        t1, t2 = UTCDateTime(t1), UTCDateTime(t2)
+        events_f, assignments_f = self._get_filtered_existing_data(t1, t2)
+        if len(events_f) > 0 and len(assignments_f) > 0 and "event_idx" in assignments_f.columns:
+            old_to_new = {old_i: new_i for new_i, old_i in enumerate(events_f.index)}
+            assignments_f = assignments_f[assignments_f["event_idx"].isin(old_to_new)].copy()
+            assignments_f["event_idx"] = assignments_f["event_idx"].map(old_to_new).astype(int)
+            events_f = events_f.reset_index(drop=True)
+        elif len(events_f) > 0:
+            events_f = events_f.reset_index(drop=True)
+        try:
+            with pd.HDFStore(self.output_path, "r") as store:
+                n_ev_before = store.get_storer("events").table.nrows if "events" in store else 0
+                n_assign_before = store.get_storer("assignments").table.nrows if "assignments" in store else 0
+        except Exception:
+            n_ev_before = len(events_f)
+            n_assign_before = len(assignments_f)
+        events_removed = n_ev_before - len(events_f)
+        assignments_removed = n_assign_before - len(assignments_f)
+        existing_summary_df = None
+        try:
+            existing_summary_df = pd.read_hdf(self.output_path, key="summary")
+        except (KeyError, FileNotFoundError):
+            pass
+        n_summary_before = len(existing_summary_df) if existing_summary_df is not None else 0
+        summary_df = _summary_df_drop_periods_in_range(existing_summary_df or pd.DataFrame(), t1, t2)
+        summary_rows_removed = n_summary_before - len(summary_df)
+        with h5py.File(self.output_path, "r") as f:
+            metadata = json.loads(f.attrs.get("metadata", "{}"))
+        os.remove(self.output_path)
+        os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
+        if len(events_f) > 0:
+            events_f.to_hdf(self.output_path, key="events", mode="w", format="table")
+        else:
+            pd.DataFrame(columns=["time", "x", "y", "z", "latitude", "longitude", "depth", "residual_rms", "n_picks", "n_p_picks", "n_s_picks"]).to_hdf(
+                self.output_path, key="events", mode="w", format="table"
+            )
+        if len(assignments_f) > 0:
+            assignments_f.to_hdf(self.output_path, key="assignments", mode="a", format="table")
+        else:
+            pd.DataFrame(columns=["event_idx", "station_id", "phase", "pick_time", "residual", "weight"]).to_hdf(
+                self.output_path, key="assignments", mode="a", format="table"
+            )
+        with h5py.File(self.output_path, "a") as f:
+            f.attrs["metadata"] = json.dumps(metadata)
+        with pd.HDFStore(self.output_path, "a") as store:
+            if "summary" in store:
+                del store["summary"]
+            if len(summary_df) > 0:
+                store.append("summary", summary_df, format="table")
+        _log.info(
+            "Overwrite cleanup associator: removed %d events, %d assignments, %d summary rows for range %s to %s",
+            events_removed, assignments_removed, summary_rows_removed, t1, t2,
+        )
+        return {"events_removed": events_removed, "assignments_removed": assignments_removed, "summary_rows_removed": summary_rows_removed}
 
     def read(self, t1=None, t2=None):
         """
@@ -2065,8 +2303,8 @@ class NLLOutput:
             Earthquake catalog to write
         metadata : dict
             Processing metadata to store in HDF5 'metadata' group attrs
-        summary_stats : dict, optional
-            If provided, one row is appended to 'summary'. Keys:
+        summary_stats : dict or list of dict, optional
+            If provided, one or more rows are appended to 'summary'. Keys:
             date, config, loc_method, nlocations, t_exec_loc, t_update_loc (optional).
 
         Notes
@@ -2081,6 +2319,7 @@ class NLLOutput:
         if summary_stats is not None and self.time_range is not None and os.path.exists(self.output_path):
             try:
                 existing_summary_df = pd.read_hdf(self.output_path, key='summary')
+                _log.info("Loaded summary from %s, %d rows", self.output_path, len(existing_summary_df))
             except (KeyError, FileNotFoundError):
                 pass
             except Exception as e:
@@ -2137,7 +2376,8 @@ class NLLOutput:
             metadata_group.attrs["last_updated"] = str(processing_time)
 
         if summary_stats is not None:
-            self._write_locator_summary(summary_stats, existing_summary_df=existing_summary_df)
+            stats_list = summary_stats if isinstance(summary_stats, (list, tuple)) else [summary_stats]
+            self._write_locator_summary(stats_list, existing_summary_df=existing_summary_df)
 
         try:
             self._write_catalog_table(self.output_path, catalog_df)
@@ -2191,29 +2431,99 @@ class NLLOutput:
             arrivals_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
         return (catalog_df, arrivals_df)
 
-    def _write_locator_summary(self, summary_stats, existing_summary_df=None):
-        """Append one row to summary table in the HDF5 file."""
-        from datetime import datetime
-        date_str = summary_stats.get('date', '')
-        if not date_str:
+    def remove_range(self, t1, t2):
+        """
+        Remove all locator data (catalog_table, arrivals_table, summary) for the time range [t1, t2].
+        Used by overwrite cleanup before re-running the locator.
+
+        Returns
+        -------
+        dict
+            Counts for logging: catalog_rows_removed, arrivals_rows_removed, summary_rows_removed.
+        """
+        if not os.path.exists(self.output_path):
+            return {"catalog_rows_removed": 0, "arrivals_rows_removed": 0, "summary_rows_removed": 0}
+        t1, t2 = UTCDateTime(t1), UTCDateTime(t2)
+        catalog_f, arrivals_f = self._get_filtered_existing_table_rows(t1, t2)
+        if catalog_f is None:
+            catalog_f = pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
+        if arrivals_f is None:
+            arrivals_f = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
+        try:
+            with pd.HDFStore(self.output_path, "r") as store:
+                n_cat_before = store.get_storer("catalog_table").table.nrows if "catalog_table" in store else 0
+                n_arr_before = store.get_storer("arrivals_table").table.nrows if "arrivals_table" in store else 0
+        except Exception:
+            n_cat_before = len(catalog_f)
+            n_arr_before = len(arrivals_f)
+        catalog_rows_removed = n_cat_before - len(catalog_f)
+        arrivals_rows_removed = n_arr_before - len(arrivals_f)
+        existing_summary_df = None
+        try:
+            existing_summary_df = pd.read_hdf(self.output_path, key="summary")
+        except (KeyError, FileNotFoundError):
+            pass
+        n_summary_before = len(existing_summary_df) if existing_summary_df is not None else 0
+        summary_df = _summary_df_drop_periods_in_range(existing_summary_df or pd.DataFrame(), t1, t2)
+        summary_rows_removed = n_summary_before - len(summary_df)
+        metadata = {}
+        try:
+            with h5py.File(self.output_path, "r") as f:
+                if "metadata" in f:
+                    metadata = dict(f["metadata"].attrs)
+        except Exception:
+            pass
+        os.remove(self.output_path)
+        os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
+        with h5py.File(self.output_path, "a") as f:
+            g = f.create_group("metadata")
+            for key, value in metadata.items():
+                g.attrs[key] = value
+        if len(summary_df) > 0:
+            with pd.HDFStore(self.output_path, "a") as store:
+                store.append("summary", summary_df, format="table")
+        self._write_catalog_table(self.output_path, catalog_f)
+        self._write_arrivals_table(self.output_path, arrivals_f)
+        _log.info(
+            "Overwrite cleanup locator: removed %d catalog rows, %d arrivals rows, %d summary rows for range %s to %s",
+            catalog_rows_removed, arrivals_rows_removed, summary_rows_removed, t1, t2,
+        )
+        return {"catalog_rows_removed": catalog_rows_removed, "arrivals_rows_removed": arrivals_rows_removed, "summary_rows_removed": summary_rows_removed}
+
+    def _write_locator_summary(self, stats_list, existing_summary_df=None):
+        """Append one or more rows to summary table in the HDF5 file."""
+        rows = []
+        for summary_stats in stats_list:
+            date_str = summary_stats.get('date', '')
+            if not date_str:
+                continue
+            if 't_update_loc' not in summary_stats:
+                summary_stats = {**summary_stats, 't_update_loc': _dt.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
+            rows.append({
+                'date': summary_stats.get('date'),
+                'config': summary_stats.get('config', ''),
+                'loc_method': summary_stats.get('loc_method', ''),
+                'nlocations': summary_stats.get('nlocations', 0),
+                't_exec_loc': summary_stats.get('t_exec_loc', 0.0),
+                't_update_loc': summary_stats.get('t_update_loc', ''),
+            })
+        if not rows:
             return
-        if 't_update_loc' not in summary_stats:
-            summary_stats = {**summary_stats, 't_update_loc': datetime.utcnow().strftime('%Y/%m/%dT%H:%M:%S')}
-        summary_row = pd.DataFrame([{
-            'date': summary_stats.get('date'),
-            'config': summary_stats.get('config', ''),
-            'loc_method': summary_stats.get('loc_method', ''),
-            'nlocations': summary_stats.get('nlocations', 0),
-            't_exec_loc': summary_stats.get('t_exec_loc', 0.0),
-            't_update_loc': summary_stats.get('t_update_loc', ''),
-        }])
-        if existing_summary_df is not None:
-            existing = existing_summary_df[existing_summary_df['date'].astype(str) != str(date_str)]
+        summary_row = pd.DataFrame(rows)
+        if existing_summary_df is not None and self.time_range is not None:
+            existing = _summary_df_drop_periods_in_range(
+                existing_summary_df, self.time_range[0], self.time_range[1]
+            )
             summary_df = pd.concat([existing, summary_row], ignore_index=True)
+        elif existing_summary_df is not None:
+            summary_df = pd.concat([existing_summary_df, summary_row], ignore_index=True)
         else:
             try:
                 existing = pd.read_hdf(self.output_path, key='summary')
-                existing = existing[existing['date'].astype(str) != str(date_str)]
+                if self.time_range is not None:
+                    existing = _summary_df_drop_periods_in_range(
+                        existing, self.time_range[0], self.time_range[1]
+                    )
                 summary_df = pd.concat([existing, summary_row], ignore_index=True)
             except (KeyError, FileNotFoundError):
                 summary_df = summary_row
@@ -2221,6 +2531,7 @@ class NLLOutput:
             if 'summary' in store:
                 del store['summary']
             store.append('summary', summary_df, format='table')
+        _log.info("Wrote summary to %s, %d rows", self.output_path, len(summary_df))
 
     def read_catalog_table(self, t1=None, t2=None, where=None) -> pd.DataFrame:
         """

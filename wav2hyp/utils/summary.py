@@ -22,6 +22,9 @@ from .stations import station_from_trace_id
 
 _log = logging.getLogger("wav2hyp")
 
+# Stages in pipeline order; used for overwrite cascade (cleanup downstream only).
+STAGES_ORDER = ("picker", "associator", "locator")
+
 
 def date_already_processed_for_stage(hdf5_path: str, start_time, end_time) -> bool:
     """
@@ -58,6 +61,119 @@ def date_already_processed_for_stage(hdf5_path: str, start_time, end_time) -> bo
         if ts is not None and ts_lo <= ts <= ts_hi:
             return True
     return False
+
+
+def drop_summary_txt_rows_in_range(txt_path: str, t1, t2) -> int:
+    """
+    Remove rows whose 'date' falls in [t1, t2] from a per-stage summary .txt (CSV) file.
+    Used by overwrite cleanup. Rewrites the file with remaining rows.
+
+    Parameters
+    ----------
+    txt_path : str
+        Path to the summary .txt CSV file.
+    t1, t2
+        UTCDateTime or str. Time range; rows with date in this range are removed.
+
+    Returns
+    -------
+    int
+        Number of rows removed (for logging).
+    """
+    path = Path(txt_path)
+    if not path.exists():
+        return 0
+    try:
+        df = pd.read_csv(path)
+    except Exception:
+        return 0
+    if df is None or len(df) == 0 or "date" not in df.columns:
+        return 0
+    ts_lo = pd.Timestamp(UTCDateTime(t1).datetime, tz="UTC")
+    ts_hi = pd.Timestamp(UTCDateTime(t2).datetime, tz="UTC")
+    n_before = len(df)
+    keep = []
+    for idx, row in df.iterrows():
+        ts = _parse_summary_date(row.get("date"))
+        if ts is None:
+            keep.append(idx)
+        elif ts < ts_lo or ts > ts_hi:
+            keep.append(idx)
+    df_out = df.loc[keep].copy() if keep else pd.DataFrame(columns=df.columns)
+    df_out.to_csv(path, index=False)
+    removed = n_before - len(df_out)
+    _log.info("Removed %d rows for range %s to %s from summary text %s", removed, t1, t2, txt_path)
+    return removed
+
+
+def station_summary_reset_for_overwrite(
+    base_output_dir: str,
+    summary_filename: str,
+    cleanup_stages: set,
+    t1,
+    t2,
+) -> dict:
+    """
+    For overwrite cleanup: reset or remove station summary rows for the given date range.
+    - If 'picker' in cleanup_stages: remove entire rows for that date.
+    - Else if 'associator' in cleanup_stages: for rows with that date, set nassign, nassoc, nevents to 0.
+    - Else if 'locator' in cleanup_stages: for rows with that date, set nevents to 0.
+
+    Parameters
+    ----------
+    base_output_dir : str
+        Base output directory (same as append_station_summary_rows).
+    summary_filename : str
+        Station summary filename (e.g. from config output.station_summary).
+    cleanup_stages : set of str
+        Subset of {'picker', 'associator', 'locator'} (stages being overwritten + downstream).
+    t1, t2
+        UTCDateTime or str. Date range to affect.
+
+    Returns
+    -------
+    dict
+        For logging: rows_removed (when picker in set), or rows_reset (count of rows whose columns were zeroed).
+    """
+    path = Path(base_output_dir) / summary_filename
+    if not path.exists():
+        return {"rows_removed": 0, "rows_reset": 0}
+    try:
+        df = pd.read_csv(path)
+    except Exception:
+        return {"rows_removed": 0, "rows_reset": 0}
+    if df is None or len(df) == 0 or "date" not in df.columns:
+        return {"rows_removed": 0, "rows_reset": 0}
+    ts_lo = pd.Timestamp(UTCDateTime(t1).datetime, tz="UTC")
+    ts_hi = pd.Timestamp(UTCDateTime(t2).datetime, tz="UTC")
+    mask_in_range = []
+    for _, row in df.iterrows():
+        ts = _parse_summary_date(row.get("date"))
+        in_range = ts is not None and ts_lo <= ts <= ts_hi
+        mask_in_range.append(in_range)
+    mask_in_range = pd.Series(mask_in_range, index=df.index)
+    n_in_range = mask_in_range.sum()
+    if n_in_range == 0:
+        return {"rows_removed": 0, "rows_reset": 0}
+    if "picker" in cleanup_stages:
+        df_out = df[~mask_in_range].copy()
+        df_out.to_csv(path, index=False)
+        _log.info("Station summary: removed %d rows for range %s to %s", n_in_range, t1, t2)
+        return {"rows_removed": int(n_in_range), "rows_reset": 0}
+    cols_to_zero = []
+    if "associator" in cleanup_stages:
+        cols_to_zero.extend(["nassign", "nassoc", "nevents"])
+    elif "locator" in cleanup_stages:
+        cols_to_zero.append("nevents")
+    if not cols_to_zero:
+        return {"rows_removed": 0, "rows_reset": 0}
+    df = df.copy()
+    for c in cols_to_zero:
+        if c in df.columns:
+            df.loc[mask_in_range, c] = 0
+    df.to_csv(path, index=False)
+    _log.info("Station summary: reset %s for %d rows in range %s to %s", cols_to_zero, n_in_range, t1, t2)
+    return {"rows_removed": 0, "rows_reset": int(n_in_range)}
 
 
 def infer_step_from_hdf5(hdf5_path: str) -> str:
