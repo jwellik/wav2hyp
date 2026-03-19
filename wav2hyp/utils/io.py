@@ -774,8 +774,16 @@ class EQTOutput:
             pass
         n_summary_before = len(existing_summary_df) if existing_summary_df is not None else 0
         n_hist_before = len(existing_hist_df) if existing_hist_df is not None else 0
-        summary_df = _summary_df_drop_periods_in_range(existing_summary_df or pd.DataFrame(), t1, t2)
-        hist_df = _summary_df_drop_periods_in_range(existing_hist_df or pd.DataFrame(), t1, t2)
+        summary_df = _summary_df_drop_periods_in_range(
+            existing_summary_df if existing_summary_df is not None else pd.DataFrame(),
+            t1,
+            t2,
+        )
+        hist_df = _summary_df_drop_periods_in_range(
+            existing_hist_df if existing_hist_df is not None else pd.DataFrame(),
+            t1,
+            t2,
+        )
         summary_rows_removed = n_summary_before - len(summary_df)
         histogram_rows_removed = n_hist_before - len(hist_df)
 
