@@ -2,7 +2,9 @@
 
 WAV2HYP stores results in HDF5 (picker, associator, and locator). This page describes the layout of each file and how to read data, including efficient queries using indexed columns where available.
 
-**Export to text/CSV:** The `summary` tables in picker, associator, and locator HDF5 files are written automatically to CSV when the pipeline is run with summary output paths (e.g. `*_picker_summary.txt`). Picks and detections can be exported via `EQTOutput(...).read()` then `.to_dataframe().to_csv(...)`; the locator catalog via `NLLOutput(path).read()` or `NLLOutput(path).read_catalog_table()` then `.to_csv(...)`.
+**Export to text/CSV:** The `summary` tables in picker, associator, and locator HDF5 files are written automatically to CSV when the pipeline is run with summary output paths (e.g. `*_picker_summary.txt`). Summary table granularity is set by `output.summary_table_period` (default `1h`); CSV export is resampled by `output.summary_text_period` (default `1d`). You can regenerate summary CSV from H5 with `python -m wav2hyp.tools.h5_to_summary_text <input_h5> <output.txt> --period 1d`. Station summary (when enabled) has one row per (`output.station_summary_period`, **trace_id**); columns include np, ns, nd, nassign, nassoc, nevents (trace_id = NET.STA.LOC.CHA). Picks and detections can be exported via `EQTOutput(...).read()` then `.to_dataframe().to_csv(...)`; the locator catalog via `NLLOutput(path).read()` or `NLLOutput(path).read_catalog_table()` then `.to_csv(...)`.
+
+**Last execution (summary tables):** Each stage’s `summary` table includes a “last execution” timestamp: `t_updated_pick` (picker), `t_updated_assoc` (associator), `t_update_loc` (locator). These are set when the stage writes results (e.g. to `%Y/%m/%dT%H:%M:%S` UTC). The pipeline uses the presence of a summary row for a given date to decide whether that date has already been processed for that stage. Without `--overwrite`, a stage is skipped for a chunk if the summary has a row for that date; with `--overwrite`, data for that date is removed from the run stage and downstream stages before re-running. See [Program workflow](workflow.md) for overwrite and skip behavior.
 
 ---
 
@@ -19,7 +21,7 @@ WAV2HYP stores results in HDF5 (picker, associator, and locator). This page desc
 | --------------------- | ------------------------------------------------------------------ |
 | `picks`               | Phase picks (P and S) from EQTransformer                           |
 | `detections`          | Detection windows (no phase label)                                 |
-| `summary`             | One row per processing day (counts, thresholds, timing)            |
+| `summary`             | One row per summary period (default 1h; configurable via `output.summary_table_period`) — counts, thresholds, timing |
 | `pick_peak_histogram` | Daily histogram of peak_value bins per station and phase (P, S, D) |
 
 
@@ -42,9 +44,9 @@ WAV2HYP stores results in HDF5 (picker, associator, and locator). This page desc
 - end_time — Window end
 - **peak_value** — Peak detection score
 
-**summary** *(exported as CSV when pipeline is run with summary output paths)*
+**summary** *(one row per period; CSV export resampled by `output.summary_text_period`)*
 
-- date — Processing date
+- date — Period start (e.g. YYYY/MM/DD or YYYY/MM/DDTHH)
 - config — Config identifier
 - ncha, nsamp — Channel/sample counts
 - pick_model — Model name
@@ -160,9 +162,9 @@ picks_subset = pd.read_hdf(path, key='picks', where=where)
 - pick_time — Pick time
 - residual, weight — Residual and weight from associator
 
-**summary** *(exported as CSV when pipeline is run with summary output paths)*
+**summary** *(one row per period; CSV export resampled by `output.summary_text_period`)*
 
-- date — Processing date
+- date — Period start
 - config — Config identifier
 - assoc_method — Association method name
 - nassignments, nevents — Counts
@@ -240,9 +242,9 @@ Columns:
 - residual, weight — Best-effort residual and association weight (if present in QuakeML/ObsPy)
 - residual_uncert, weight_uncert — Uncertainties when present (otherwise NA)
 
-**summary** *(exported as CSV when pipeline is run with summary output paths)*
+**summary** *(one row per period; CSV export resampled by `output.summary_text_period`)*
 
-- date — Processing date
+- date — Period start
 - config — Config identifier
 - loc_method — Location method name
 - nlocations — Number of located events

@@ -89,3 +89,11 @@ Config + time range (t1, t2)
 │  (NonLinLoc)         │     + nll_<config_name>/loc-YYYY-MM-DD/
 └─────────────────────┘     VCatalog (located events)
 ```
+
+---
+
+## Overwrite and skip behavior
+
+**Without `-o` / `--overwrite`:** For each time chunk and each stage (picker, associator, locator), the pipeline checks whether that date is already in the stage’s summary table (or summary .txt). If it is, the stage is **skipped** for that chunk and results are **loaded from HDF5** instead of recomputing. This avoids re-downloading waveforms and re-running the picker/associator/locator when the date was already processed.
+
+**With `-o` / `--overwrite`:** Before running the requested stages for a chunk, the pipeline **removes** data for that date only from the stages that are **being run** and **all downstream stages** (cascade). Picker overwrite → clean picker, associator, and locator outputs for that date; associator overwrite → clean associator and locator; locator-only overwrite (e.g. `-l -o`) → clean locator only. Per-stage summary .txt files and the station summary file (when enabled) are updated accordingly: summary .txt rows for that date are dropped; station summary either has rows for that date removed (when picker is in the cleanup set) or only associator/locator columns reset (nassign, nassoc, nevents or nevents only). Then the pipeline runs as usual. See [Data structures](data-structures.md) for the “last execution” columns used to detect already-processed dates.
