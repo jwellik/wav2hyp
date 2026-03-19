@@ -153,7 +153,7 @@ results/
 - `-a, --associate`: Run event association step
 - `-l, --locate`: Run earthquake location step
 - `-A, --all`: Run full pipeline (same as -p -a -l)
-- `-o, --overwrite`: Overwrite existing output for the time range (default is to skip existing)
+- `-o, --overwrite`: Overwrite existing output for the time range; before re-running, removes data for that date from the run stages and all downstream stages (cascade). Without `-o`, stages whose summary table already has that date are skipped and results are loaded from HDF5.
 - `--verbose, -v`: Enable verbose output
 - `--quiet, -q`: Suppress output except errors
 - `--version`: Show version information
