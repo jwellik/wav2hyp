@@ -2,11 +2,9 @@
 
 WAV2HYP stores results in HDF5 (picker, associator, and locator). This page describes the layout of each file and how to read data, including efficient queries using indexed columns where available.
 
-**Export to text/CSV:** The `summary` tables in picker, associator, and locator HDF5 files are written automatically to CSV when the pipeline is run with summary output paths (e.g. `*_picker_summary.txt`). Summary table granularity is set by `output.summary_table_period` (default `1h`); CSV export is resampled by `output.summary_text_period` (default `1d`). You can regenerate summary CSV from H5 with `python -m wav2hyp.tools.h5_to_summary_text <input_h5> <output.txt> --period 1d`. Station summary (when enabled) has one row per (`output.station_summary_period`, **trace_id**); columns include np, ns, nd, nassign, nassoc, nevents (trace_id = NET.STA.LOC.CHA). Picks and detections can be exported via `EQTOutput(...).read()` then `.to_dataframe().to_csv(...)`; the locator catalog via `NLLOutput(path).read()` or `NLLOutput(path).read_catalog_table()` then `.to_csv(...)`.
+**Export to text/CSV:** The `summary` tables in picker, associator, and locator HDF5 files are written automatically to CSV when the pipeline is run with summary output paths (e.g. `*_picker_summary.txt`). Summary table granularity is set by `output.summary_table_period` (default `1h`); CSV export is resampled by `output.summary_text_period` (default `1d`). You can regenerate summary CSV from H5 with `python -m wav2hyp.tools.h5_to_summary_text <input_h5> <output.txt> --period 1d`. Station summary is now stored as **stage slices in HDF5** and merged to text when requested: `python -m wav2hyp.tools.station_summary_from_stage_slices --picker-h5 <eqt-volpick.h5> --associator-h5 <pyocto.h5> --locator-h5 <nll.h5> <station_summary.txt>`. Station-summary granularity is `output.station_summary_period` (default `1d`) with one row per (`date`, `trace_id`) in the merged output. Picks and detections can be exported via `EQTOutput(...).read()` then `.to_dataframe().to_csv(...)`; the locator catalog via `NLLOutput(path).read()` or `NLLOutput(path).read_catalog_table()` then `.to_csv(...)`.
 
 **Last execution (summary tables):** Each stage’s `summary` table includes a “last execution” timestamp: `t_updated_pick` (picker), `t_updated_assoc` (associator), `t_update_loc` (locator). These are set when the stage writes results (e.g. to `%Y/%m/%dT%H:%M:%S` UTC). The pipeline uses the presence of a summary row for a given date to decide whether that date has already been processed for that stage. Without `--overwrite`, a stage is skipped for a chunk if the summary has a row for that date; with `--overwrite`, data for that date is removed from the run stage and downstream stages before re-running. See [Program workflow](workflow.md) for overwrite and skip behavior.
-
----
 
 ## Picker: `results/<target>/picks/eqt-volpick.h5`
 
@@ -23,6 +21,7 @@ WAV2HYP stores results in HDF5 (picker, associator, and locator). This page desc
 | `detections`          | Detection windows (no phase label)                                 |
 | `summary`             | One row per summary period (default 1h; configurable via `output.summary_table_period`) — counts, thresholds, timing |
 | `pick_peak_histogram` | Daily histogram of peak_value bins per station and phase (P, S, D) |
+| `station_summary/picker/<period_id>` | Picker station-summary slice for one period (`date`,`trace_id`,`nsamples`,`ncha`,`np`,`ns`,`nd`) |
 
 
 **Columns** (bold = indexed data_column)
@@ -132,7 +131,16 @@ picks_subset = pd.read_hdf(path, key='picks', where=where)
 
 ## Associator: `results/<target>/associations/pyocto.h5`
 
-**Indexed data_columns:** None in the current implementation. The `events` and `assignments` tables are written without `data_columns`, so efficient `where=` queries are not available; retrieval is full-table or via the wav2hyp reader.
+**Indexed data_columns (new files):**
+- On `events`: **time**, **residual_rms**, **n_picks**, **n_p_picks**, **n_s_picks**
+- On `assignments`: **event_idx**, **station_id**, **phase**, **pick_time**
+
+New `pyocto.h5` files are written with indexed `data_columns` so `where=` queries on these columns can avoid full-table scans.
+For older files created before this change, run the retrofit tool:
+
+```bash
+python -m wav2hyp.tools.reindex_pyocto_h5 --roots results results_local
+```
 
 **Keys**
 
@@ -142,6 +150,7 @@ picks_subset = pd.read_hdf(path, key='picks', where=where)
 | `events`      | Associated events (origin time, location, pick counts, residual)           |
 | `assignments` | Pick-to-event assignments (event_idx, station_id, phase, residual, weight) |
 | `summary`     | One row per processing day (nassignments, nevents, timing)                 |
+| `station_summary/associator/<period_id>` | Associator station-summary slice for one period (`date`,`trace_id`,`nassign`,`nassoc`) |
 
 
 **Columns**
@@ -183,6 +192,15 @@ pyocto = PyOctoOutput("results/sthelens/associations/pyocto.h5")
 catalog, events_df, assignments_df, metadata = pyocto.read(t1="2004-09-23", t2="2004-09-25")
 ```
 
+**Fast event-table read (recommended for notebooks/rates):**
+
+```python
+from wav2hyp.utils.io import PyOctoOutput
+
+pyocto = PyOctoOutput("results/sthelens/associations/pyocto.h5")
+events_df = pyocto.read_events_table(t1="2004-09-23", t2="2004-09-25")
+```
+
 **Direct pandas (full tables):**
 
 ```python
@@ -208,6 +226,7 @@ assignments_df = pd.read_hdf(path, key='assignments')
 | `summary`          | One row per processing day (nlocations, timing)                               |
 | `catalog_table`    | One row per located event; pandas table with indexed columns for fast query   |
 | `arrivals_table`   | One row per origin arrival (phase pick linkage) for fast arrival queries        |
+| `station_summary/locator/<period_id>` | Locator station-summary slice for one period (`date`,`trace_id`,`nevents`) |
 
 
 **Indexed data_columns (queryable with `where=`):**
@@ -309,4 +328,29 @@ with h5py.File(path, 'r') as f:
     meta = dict(f['metadata'].attrs)
 summary_df = pd.read_hdf(path, key='summary')
 ```
+
+---
+
+## Station Summary (H5 stage slices + merged text)
+
+Station summary is written as stage-specific slices in each stage HDF5 file and later merged into `station_summary.txt` on demand (or once at the end of `run()` when `output.station_summary` is configured).
+
+**Stage-slice columns by key**
+
+- `station_summary/picker/<period_id>`: `date`, `trace_id`, `nsamples`, `ncha`, `np`, `ns`, `nd`
+- `station_summary/associator/<period_id>`: `date`, `trace_id`, `nassign`, `nassoc`
+- `station_summary/locator/<period_id>`: `date`, `trace_id`, `nevents`
+
+**Merged `station_summary.txt` columns**
+
+- `date` — Period start string (format depends on `output.station_summary_period`)
+- `trace_id` — Channel id (`NET.STA.LOC.CHA`)
+- `nsamples` — Samples for this trace in the period (picker)
+- `ncha` — Channel count marker (picker; typically 1 per trace row)
+- `np`, `ns`, `nd` — P picks, S picks, detections (picker)
+- `nassign` — Number of assignments linked to the trace (associator)
+- `nassoc` — Number of distinct associated events for the trace (associator)
+- `nevents` — Number of located events with arrivals on the trace (locator)
+
+Missing stage values are filled with `0` in the merged text output.
 

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WAV2HYP Workflow</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+  </script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 1rem;
+      background: #f8f9fa;
+    }
+    h1 { color: #1a1a2e; margin-bottom: 0.5rem; }
+    .subtitle { color: #555; margin-bottom: 1.5rem; }
+    .mermaid { background: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  </style>
+</head>
+<body>
+  <h1>WAV2HYP Workflow</h1>
+  <p class="subtitle">Data inputs → processing codes → outputs</p>
+
+  <h2>Main pipeline</h2>
+  <p><strong>Target location (lat, lon, elev)</strong> is a key input to <code>config.yaml</code> (under <code>target:</code>). It defines the study area for association and the grid origin for NonLinLoc.</p>
+
+  <div class="mermaid">
+flowchart TB
+    subgraph inputs["Data inputs"]
+        target["Target location\nlat, lon, elev"]
+        config["config.yaml"]
+        inv["Station inventory\n(StationXML)"]
+        waves["Waveform data\n(FDSN / SDS / Earthworm / SeedLink)"]
+        trange["Time range\n--t1, --t2"]
+    end
+
+    subgraph entry["Entry"]
+        cmd["wav2hyp CLI\ncli.py"]
+    end
+
+    subgraph step1["1. Picker"]
+        vclient["VClient\nfetch waveforms"]
+        eqt["EQTransformer\nphase picking"]
+        out1["eqt-volpick.h5\npicks & detections"]
+    end
+
+    subgraph step2["2. Associator"]
+        pyocto["PyOcto\nevent association"]
+        out2["pyocto.h5\nevents & assignments"]
+    end
+
+    subgraph step3["3. Locator"]
+        nll["NonLinLoc\nnllpy"]
+        out3["nll.h5 + .hyp files\ncatalog"]
+    end
+
+    subgraph final["Final outputs"]
+        catalog["VCatalog"]
+        summary["Summary .txt files"]
+        logs["wav2hyp.log"]
+    end
+
+    target --> config
+    config --> cmd
+    inv --> cmd
+    trange --> cmd
+    cmd --> step1
+    waves --> vclient
+    vclient --> eqt
+    inv --> eqt
+    eqt --> out1
+    out1 --> step2
+    inv --> pyocto
+    pyocto --> out2
+    out2 --> step3
+    inv --> nll
+    nll --> out3
+    out3 --> catalog
+    out1 --> summary
+    out2 --> summary
+    out3 --> summary
+    cmd --> logs
+  </div>
+
+  <h2>Inputs to NonLinLoc (nllpy)</h2>
+  <p>NonLinLoc is driven by <a href="https://github.com/jwellik/nllpy">nllpy</a>, which builds the control file and runs Vel2Grid → Grid2Time → NLLoc. All of the following feed into NonLinLoc:</p>
+
+  <div class="mermaid">
+flowchart TB
+    subgraph config_inputs["From config.yaml"]
+        target_nll["Target location\nlat, lon, elev"]
+        nll_home["nll_home\n(working directory)"]
+        config_name["config_name, station_format"]
+    end
+
+    subgraph from_pipeline["From pipeline"]
+        obs["Observation files\n(NLLOC_OBS)\nfrom associated catalog"]
+        inv_nll["Station inventory\n→ GTSRCE / EQSTA"]
+    end
+
+    subgraph nllpy_build["nllpy builds"]
+        trans["TRANS\nlat_orig, lon_orig"]
+        layer["Velocity model\nlayer.layers"]
+        vggrid["Velocity grid\nvggrid"]
+        locgrid["Location grid\nlocgrid"]
+        locsearch["LOCSEARCH"]
+        locmethod["LOCMETHOD"]
+        ctrl["Control file .in"]
+    end
+
+    subgraph nll_run["NonLinLoc run"]
+        vel2grid["Vel2Grid"]
+        grid2time["Grid2Time"]
+        nlloc["NLLoc"]
+    end
+
+    target_nll --> trans
+    target_nll --> locgrid
+    nll_home --> ctrl
+    config_name --> ctrl
+    obs --> ctrl
+    inv_nll --> ctrl
+    trans --> ctrl
+    layer --> ctrl
+    vggrid --> ctrl
+    locgrid --> ctrl
+    locsearch --> ctrl
+    locmethod --> ctrl
+    ctrl --> vel2grid
+    vel2grid --> grid2time
+    grid2time --> nlloc
+  </div>
+
+  <p><strong>Summary:</strong> Target (lat, lon, elev) → grid origin; observation files (NLLOC_OBS) from associated catalog; station inventory → GTSRCE/EQSTA; nll_home and config_name from config; velocity model and grids from nllpy template (e.g. volcano). nllpy writes the control file; NonLinLoc runs Vel2Grid, Grid2Time, NLLoc.</p>
+</body>
+</html>

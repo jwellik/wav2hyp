@@ -94,6 +94,22 @@ Config + time range (t1, t2)
 
 ## Overwrite and skip behavior
 
-**Without `-o` / `--overwrite`:** For each time chunk and each stage (picker, associator, locator), the pipeline checks whether that date is already in the stage’s summary table (or summary .txt). If it is, the stage is **skipped** for that chunk and results are **loaded from HDF5** instead of recomputing. This avoids re-downloading waveforms and re-running the picker/associator/locator when the date was already processed.
+**Without `-o` / `--overwrite` (default):** For each time chunk and for each stage (picker, associator, locator), the pipeline checks whether that stage has already been processed by reading the stage’s HDF5 `summary` table and looking for any row whose parsed `date` falls within the chunk’s \([t1, t2]\) range. (Per-stage summary `.txt` files are derived from HDF5 and are not the source of truth for skip decisions.)
 
-**With `-o` / `--overwrite`:** Before running the requested stages for a chunk, the pipeline **removes** data for that date only from the stages that are **being run** and **all downstream stages** (cascade). Picker overwrite → clean picker, associator, and locator outputs for that date; associator overwrite → clean associator and locator; locator-only overwrite (e.g. `-l -o`) → clean locator only. Per-stage summary .txt files and the station summary file (when enabled) are updated accordingly: summary .txt rows for that date are dropped; station summary either has rows for that date removed (when picker is in the cleanup set) or only associator/locator columns reset (nassign, nassoc, nevents or nevents only). Then the pipeline runs as usual. See [Data structures](data-structures.md) for the “last execution” columns used to detect already-processed dates.
+- If the stage **was already processed** for the chunk, the stage is **skipped** and results are **loaded from HDF5** for that time range (no waveform download, no EQTransformer / PyOcto / NonLinLoc run for that stage).
+- If the stage **was not processed** for the chunk, the stage **runs** and **writes** outputs normally.
+- If a stage is **not requested**, its existing outputs are read from HDF5 for the time range.
+
+**With `-o` / `--overwrite`:** Before running any requested stages for a chunk, the pipeline performs a **cascade cleanup**: it removes existing data in \([t1, t2]\) for any stage that is being run **and all downstream stages**.
+
+- If **picker** is run with overwrite → cleanup **picker + associator + locator**
+- If **associator** is run with overwrite (picker not run) → cleanup **associator + locator**
+- If **locator only** is run with overwrite (e.g. `-l -o`) → cleanup **locator**
+
+Cleanup details:
+
+- Stage output HDF5 files are cleaned by calling the stage output object’s `remove_range(t1, t2)`.
+- Per-stage summary `.txt` files (when configured) have rows in-range removed.
+- Station summary stage slices are cleaned by deleting only the affected HDF5 nodes for the period range in each cleanup stage (`/station_summary/<step>/<period_id>`). This avoids reading/re-writing a monolithic station summary text file.
+
+After cleanup, the pipeline runs requested stages as usual and writes fresh outputs for the chunk. Station summary text (`output.station_summary`) is generated once per `run()` by joining stage slices from picker/associator/locator HDF5 outputs. See [Data structures](data-structures.md) for stage summary columns and station-summary slice layout.
