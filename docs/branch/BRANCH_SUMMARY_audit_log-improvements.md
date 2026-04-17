@@ -3,11 +3,11 @@
 ## Metadata
 
 - **Branch**: audit/log-improvements
-- **Status**: open
+- **Status**: closed
 - **Opened on**: 2026-04-17
-- **Closed on**: -
-- **Merged into**: -
-- **Merge strategy**: -
+- **Closed on**: 2026-04-17
+- **Merged into**: main
+- **Merge strategy**: fast-forward/rebase
 - **Last updated**: 2026-04-17
 ## Accomplishments
 
@@ -17,7 +17,7 @@
 
 ## Planned work
 
-- Complete the branch by committing the logging cleanup, merging it to `main`, and pushing the result.
+- Completed: logging cleanup committed, merged to `main`, and pushed.
 
 ## Executed work
 
