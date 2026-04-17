@@ -473,7 +473,7 @@ class EQTOutput:
         If time_range was specified during initialization, any existing data
         within that time range will be removed before writing new data.
         """
-        print(f"Writing EQT output to {self.output_path}")
+        _log.info("Writing EQT output to %s", self.output_path)
 
         # If we will overwrite the file (time-range replacement), preserve existing summary/histogram
         existing_summary_df = None
@@ -698,7 +698,7 @@ class EQTOutput:
         tuple of (pd.DataFrame, pd.DataFrame)
             Filtered picks and detections DataFrames excluding the time range
         """
-        print(f"Filtering existing EQT data to exclude {t1} to {t2}")
+        _log.info("Filtering existing EQT data to exclude %s to %s", t1, t2)
         
         where_picks = self._where_outside_time_bounds('peak_time', t1, t2)
         where_detections = self._where_outside_time_bounds('start_time', t1, t2)
@@ -738,8 +738,13 @@ class EQTOutput:
         picks_removed = n_picks_total - len(picks_filtered) if where_picks else 0
         detections_removed = n_det_total - len(detections_filtered) if where_detections else 0
 
-        print(f"Removing {picks_removed} picks and {detections_removed} detections within time range. "
-              f"Keeping {len(picks_filtered)} picks and {len(detections_filtered)} detections outside time range.")
+        _log.info(
+            "Removing %d picks and %d detections within time range. Keeping %d picks and %d detections outside time range.",
+            picks_removed,
+            detections_removed,
+            len(picks_filtered),
+            len(detections_filtered),
+        )
         return picks_filtered, detections_filtered
 
     def remove_range(self, t1, t2):
@@ -887,9 +892,9 @@ class EQTOutput:
         Time filtering is applied to peak_time for picks and start_time for detections.
         When min_peak_value is set, peak_value is used in the where= clause (indexed).
         When is_associated is True or False, is_associated is used in the where= clause for picks (indexed).
-        Prints summary statistics of loaded data.
+        Logs summary statistics of loaded data.
         """
-        print(f"Reading EQT output from {self.output_path}")
+        _log.info("Reading EQT output from %s", self.output_path)
         where_picks = self._where_time_bounds('peak_time', t1, t2)
         where_detections = self._where_time_bounds('start_time', t1, t2)
         where_picks = self._append_peak_value_where(where_picks, min_peak_value)
@@ -929,15 +934,15 @@ class EQTOutput:
             else:
                 detections_df = pd.read_hdf(self.output_path, key='detections')
         except (KeyError, FileNotFoundError) as e:
-            print(f"WARNING: Could not read EQT output: {e}")
+            _log.warning("Could not read EQT output: %s", e)
             raise
 
         if t1 is not None or t2 is not None:
-            print(f"Time filtered from {t1} to {t2}")
+            _log.info("Time filtered from %s to %s", t1, t2)
         if min_peak_value is not None:
-            print(f"Peak value filter: >= {min_peak_value}")
+            _log.info("Peak value filter: >= %s", min_peak_value)
         if is_associated is not None:
-            print(f"Association filter: is_associated == {is_associated}")
+            _log.info("Association filter: is_associated == %s", is_associated)
 
         # Backward compatibility: ensure is_associated column exists (old files may not have it)
         if 'is_associated' not in picks_df.columns:
@@ -948,14 +953,19 @@ class EQTOutput:
             with h5py.File(self.output_path, 'r') as f:
                 metadata = json.loads(f.attrs['metadata'])
         except Exception:
-            print("WARNING: Could not load metadata from HDF5 file. Return None.")
+            _log.warning("Could not load metadata from HDF5 file. Return None.")
             metadata = None
 
         # Count P and S picks separately
         p_picks_count = len(picks_df[picks_df['phase'] == 'P']) if len(picks_df) > 0 else 0
         s_picks_count = len(picks_df[picks_df['phase'] == 'S']) if len(picks_df) > 0 else 0
         
-        print(f"Detections: {len(detections_df):5d} | P picks: {p_picks_count:5d} | S picks: {s_picks_count:5d}\n")
+        _log.info(
+            "Detections: %5d | P picks: %5d | S picks: %5d",
+            len(detections_df),
+            p_picks_count,
+            s_picks_count,
+        )
 
         return PickListX.from_dataframe(picks_df), DetectionListX.from_dataframe(detections_df), metadata
 
@@ -1041,7 +1051,13 @@ class EQTOutput:
         except Exception:
             pass
         n_true = sum(picks_in['is_associated'])
-        print(f"Updated is_associated for {len(picks_in)} picks in [{t1}, {t2}]: {n_true} associated.")
+        _log.info(
+            "Updated is_associated for %d picks in [%s, %s]: %d associated.",
+            len(picks_in),
+            t1,
+            t2,
+            n_true,
+        )
 
 
 class PyOctoOutput:
@@ -1206,7 +1222,7 @@ class PyOctoOutput:
         If time_range was specified during initialization, any existing data
         within that time range will be removed before writing new data.
         """
-        print(f"Writing PyOcto output to {self.output_path}")
+        _log.info("Writing PyOcto output to %s", self.output_path)
 
         existing_summary_df = None
         if summary_stats is not None and self.time_range is not None and os.path.exists(self.output_path):
@@ -1322,7 +1338,7 @@ class PyOctoOutput:
         Handles conversion of event times from Unix timestamps (float) to datetime
         objects for proper time-based filtering.
         """
-        print(f"Filtering existing PyOcto data to exclude {t1} to {t2}")
+        _log.info("Filtering existing PyOcto data to exclude %s to %s", t1, t2)
         
         # Read existing data
         try:
@@ -1368,11 +1384,16 @@ class PyOctoOutput:
             assignments_filtered = assignments_df[assignments_df['event_idx'].isin(remaining_event_ids)] if len(assignments_df) > 0 else pd.DataFrame()
             assignments_removed = len(assignments_df) - len(assignments_filtered)
             
-            print(f"Removing {events_removed} events and {assignments_removed} assignments within time range. "
-                  f"Keeping {len(events_filtered)} events and {len(assignments_filtered)} assignments outside time range.")
+            _log.info(
+                "Removing %d events and %d assignments within time range. Keeping %d events and %d assignments outside time range.",
+                events_removed,
+                assignments_removed,
+                len(events_filtered),
+                len(assignments_filtered),
+            )
         else:
             # Fallback: no filtering if time column not found
-            print("Warning: No 'time' column found in events DataFrame, keeping all existing data")
+            _log.warning("No 'time' column found in events DataFrame, keeping all existing data")
             events_filtered = events_df
             assignments_filtered = assignments_df
         
@@ -1531,7 +1552,7 @@ class PyOctoOutput:
         Converts PyOcto results to VCatalog format for compatibility with
         other seismological tools. Time filtering is applied to event times.
         """
-        print(f"Reading PyOcto output from {self.output_path}")
+        _log.info("Reading PyOcto output from %s", self.output_path)
         if t1 is not None or t2 is not None:
             _log.info(
                 "PyOctoOutput.read() builds a full VCatalog before filtering and can be slow. "
@@ -1546,7 +1567,7 @@ class PyOctoOutput:
             try:
                 metadata = json.loads(f.attrs['metadata'])
             except:
-                print("WARNING: Could not load metadata from HDF5 file. Return None.")
+                _log.warning("Could not load metadata from HDF5 file. Return None.")
                 metadata = None
 
         # Convert to VCatalog and add QuakeML to PyASDF file
@@ -1561,9 +1582,9 @@ class PyOctoOutput:
                 t2 = UTCDateTime(t2) if t2 is not None else None
             
             catalog = catalog.filter(time=[t1, t2])
-            print(f"Time filtered catalog from {t1} to {t2}")
+            _log.info("Time filtered catalog from %s to %s", t1, t2)
         
-        print(f"Events: {len(catalog):5d}\n")
+        _log.info("Events: %5d", len(catalog))
 
         return catalog, events_df, assignments_df, metadata
 
@@ -2231,7 +2252,7 @@ class NLLOutput:
                 ors = " | ".join([f"(event_id == {repr(str(eid).encode('utf-8'))})" for eid in event_ids])
                 event_where = f"({ors})"
             else:
-                print("WARNING: `event_ids` too large for where() OR-chain; ignoring event_id filter.")
+                _log.warning("`event_ids` too large for where() OR-chain; ignoring event_id filter.")
 
         if time_where and event_where:
             where = f"({time_where}) & {event_where}"
@@ -2536,7 +2557,7 @@ class NLLOutput:
         If time_range was specified during initialization, existing rows within that
         range are replaced by the new catalog/arrivals; rows outside the range are kept.
         """
-        print(f"Writing NonLinLoc output to {self.output_path}")
+        _log.info("Writing NonLinLoc output to %s", self.output_path)
 
         existing_summary_df = None
         corrupt_file = False
@@ -2549,23 +2570,23 @@ class NLLOutput:
             except Exception as e:
                 existing_summary_df = None
                 corrupt_file = True
-                print(f"WARNING: Could not read existing locator file (corrupt or truncated): {e}")
+                _log.warning("Could not read existing locator file (corrupt or truncated): %s", e)
         if corrupt_file and os.path.exists(self.output_path):
             try:
                 os.remove(self.output_path)
-                print(f"Removed corrupt file {self.output_path}; writing fresh file.")
+                _log.warning("Removed corrupt file %s; writing fresh file.", self.output_path)
             except OSError:
                 pass
 
         if catalog is None or len(catalog) == 0:
-            print("Warning: Empty catalog, skipping write operation")
+            _log.warning("Empty catalog, skipping write operation")
             return
 
         try:
             catalog_df = self._catalog_to_dataframe(catalog)
             arrivals_df = self._catalog_arrivals_to_dataframe(catalog)
         except Exception as e:
-            print(f"WARNING: Could not extract tables from catalog: {e}")
+            _log.warning("Could not extract tables from catalog: %s", e)
             catalog_df = pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
             arrivals_df = pd.DataFrame(columns=NLLOutput.ARRIVALS_TABLE_COLUMNS)
 
@@ -2579,7 +2600,7 @@ class NLLOutput:
                 arrivals_df = pd.concat([existing_arrivals_df, arrivals_df], ignore_index=True)
 
         if catalog_df.empty:
-            print("Warning: No catalog rows to write, skipping write operation")
+            _log.warning("No catalog rows to write, skipping write operation")
             return
 
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
@@ -2607,7 +2628,7 @@ class NLLOutput:
             self._write_catalog_table(self.output_path, catalog_df)
             self._write_arrivals_table(self.output_path, arrivals_df)
         except Exception as e:
-            print(f"WARNING: Could not write tables to {self.output_path}: {e}")
+            _log.warning("Could not write tables to %s: %s", self.output_path, e)
 
     def _get_filtered_existing_table_rows(self, t1, t2):
         """
@@ -2812,7 +2833,7 @@ class NLLOutput:
         tuple of (VCatalog, dict) or (None, None)
             VCatalog and metadata dict, or (None, None) if file or catalog_table missing.
         """
-        print(f"Reading NonLinLoc output from {self.output_path}")
+        _log.info("Reading NonLinLoc output from %s", self.output_path)
 
         metadata = None
         try:
@@ -2824,7 +2845,7 @@ class NLLOutput:
                         if isinstance(value, bytes):
                             metadata[key] = value.decode("utf-8")
         except (OSError, Exception):
-            print("WARNING: Could not open HDF5 file or read metadata.")
+            _log.warning("Could not open HDF5 file or read metadata.")
             return None, None
 
         catalog_df = self.read_catalog_table(t1=t1, t2=t2)
@@ -2833,13 +2854,13 @@ class NLLOutput:
             try:
                 with pd.HDFStore(self.output_path, "r") as store:
                     if "catalog_table" not in store:
-                        print(f"ERROR: catalog_table not found in {self.output_path}")
+                        _log.error("catalog_table not found in %s", self.output_path)
                         return None, None
             except Exception:
                 return None, None
             from vdapseisutils import VCatalog
             from obspy import Catalog
-            print(f"Events:     0\n")
+            _log.info("Events: %5d", 0)
             return VCatalog(Catalog()), metadata
 
         events = self._catalog_table_to_events(catalog_df)
@@ -2854,15 +2875,15 @@ class NLLOutput:
                         events_by_id[str(eid)] = ev
                 self._arrivals_table_to_picks_and_arrivals(events_by_id, arrivals_df)
             except KeyError:
-                print(f"WARNING: arrivals_table missing in {self.output_path}; returning catalog without arrivals.")
+                _log.warning("arrivals_table missing in %s; returning catalog without arrivals.", self.output_path)
 
         if t1 is not None or t2 is not None:
-            print(f"Time filtered catalog from {t1} to {t2}")
+            _log.info("Time filtered catalog from %s to %s", t1, t2)
 
         from obspy import Catalog
         from vdapseisutils import VCatalog
         vcatalog = VCatalog(Catalog(events=events))
-        print(f"Events: {len(vcatalog):5d}\n")
+        _log.info("Events: %5d", len(vcatalog))
         return vcatalog, metadata
 
     def export_catalog(

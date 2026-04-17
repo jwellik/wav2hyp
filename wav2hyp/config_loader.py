@@ -186,9 +186,10 @@ def print_config_summary(config, logger=None):
         If set, each summary line is also logged with logger.info().
     """
     def _out(msg):
-        print(msg)
         if logger is not None:
             logger.info(msg)
+        else:
+            print(msg)
 
     _out("=" * 60)
     _out("WAV2HYP Configuration Summary")
@@ -203,7 +204,7 @@ def print_config_summary(config, logger=None):
     # Waveform client
     waveform_config = config['waveform_client']
     datasource = waveform_config['datasource']
-    _out(f"\nWaveform Datasource: {datasource}")
+    _out(f"Waveform Datasource: {datasource}")
 
     if 'client_type' in waveform_config:
         _out(f"Client Type: {waveform_config['client_type']}")
@@ -215,25 +216,30 @@ def print_config_summary(config, logger=None):
         _out(f"Additional Parameters: {additional_params}")
 
     # Output paths
-    _out(f"\nOutput Directory: {config['output']['base_dir']}")
+    _out(f"Output Directory: {config['output']['base_dir']}")
 
     # Picker settings
     picker = config['picker']
-    _out(f"\nPicker Model: {picker['model']}")
+    _out(f"Picker Model: {picker['model']}")
     _out(f"Thresholds - P: {picker['p_threshold']}, S: {picker['s_threshold']}, D: {picker['d_threshold']}")
 
     # Associator settings
     assoc = config['associator']
-    _out(f"\nAssociation Radius: {assoc['radius_km']} km")
+    _out(f"Association Radius: {assoc['radius_km']} km")
     _out(f"Velocity Model - P: {assoc['p_velocity']} km/s, S: {assoc['s_velocity']} km/s")
     _out(f"Min Picks - P: {assoc['min_p_picks']}, S: {assoc['min_s_picks']}")
 
     # Locator settings
     locator = config['locator']
-    _out(f"\nNonLinLoc Home: {locator['nll_home']}")
+    _out(f"NonLinLoc Home: {locator['nll_home']}")
     _out(f"Config Name: {locator['config_name']}")
-    if locator.get('velocity_model_file'):
-        _out(f"Velocity Model File: {locator['velocity_model_file']}")
+    if locator.get('velocity_model_layers'):
+        _out(f"Locator Velocity Model: {len(locator['velocity_model_layers'])} configured layers")
+    elif locator.get('nllpy_overrides', {}).get('layer', {}).get('layers'):
+        layers = locator['nllpy_overrides']['layer']['layers']
+        _out(f"Locator Velocity Model: {len(layers)} layers via locator.nllpy_overrides.layer.layers")
+    else:
+        _out("Locator Velocity Model: nllpy volcano default")
 
     _out("=" * 60)
 
