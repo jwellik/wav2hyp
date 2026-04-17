@@ -79,7 +79,7 @@ def validate_config(config):
     if 'summary_text_period' not in config['output']:
         config['output']['summary_text_period'] = '1d'  # Resampling period for step summary text files
     if 'station_summary_period' not in config['output']:
-        config['output']['station_summary_period'] = '1h'  # One row per (period, trace_id) in station summary
+        config['output']['station_summary_period'] = '1d'  # One row per (period, trace_id) in station summary
     
     # Validate waveform_client configuration
     waveform_config = config['waveform_client']
@@ -169,7 +169,7 @@ def get_global_variables(config):
         'station_summary': config['output'].get('station_summary', None),
         'summary_table_period': config['output'].get('summary_table_period', '1h'),
         'summary_text_period': config['output'].get('summary_text_period', '1d'),
-        'station_summary_period': config['output'].get('station_summary_period', '1h'),
+        'station_summary_period': config['output'].get('station_summary_period', '1d'),
     }
 
 

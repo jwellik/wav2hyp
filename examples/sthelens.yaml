@@ -11,9 +11,9 @@ target:
 # Times of Interest
 # 2004/09/23–2004/09/24  # default REDPy backfill dates
   
-# Waveform Client
-waveform_client:
-  datasource: "IRIS"  # FDSN data center (auto-detected by VClient)
+# # Waveform Client
+# waveform_client:
+#   datasource: "IRIS"  # FDSN data center (auto-detected by VClient)
 
 # Waveform Client - Alternatives
 # # Earthworm
@@ -22,9 +22,10 @@ waveform_client:
 #   client_type: "earthworm"     # Explicitly specify client type
 #   port: 16024                  # Earthworm server port
 
-# # SDS filesystem
-# waveform_client:
-#   # datasource: "/path/to/sds/"  # Path to SDS directory structure (auto-detected by VClient)
+# SDS filesystem
+waveform_client:
+  # datasource: "/path/to/sds/data"  # Path to SDS directory structure (auto-detected by VClient)
+  datasource: "/VDAP-NAS/jwellik/DATA/CVO/MSH2004_SDS"  # Path to SDS directory structure (auto-detected by VClient)
     
 # Station Inventory
 inventory:
@@ -35,28 +36,20 @@ inventory:
 # - All outputs are relative to base_dir
 output:
   base_dir: "./results/sthelens"
-  picker_dir: "1_picks"
-  associator_dir: "2_associations" 
-  locator_dir: "3_locations"
+  picker_dir: "picks"
+  associator_dir: "associations" 
+  locator_dir: "locations"
   log_dir: "logs"
-  picker_summary: "sthelens_1_picker_summary.txt"
-  associator_summary: "sthelens_2_associator_summary.txt"
-  locator_summary: "sthelens_3_locator_summary.txt"
-  # Per-channel summary: set to filename (e.g. "station_summary.txt") to enable; null or omit to disable
-  station_summary: "sthelens_station_summary.txt"
-  # Summary periods (time strings: '1h', '1d', '10T' = 10 min). H5 = row granularity; text = resample when writing CSV.
-  summary_table_period: "1h"
-  summary_text_period: "1d"
-  station_summary_period: "1h"
-  # Per-day config snapshot: set to a subdir name (e.g. "config_snapshots") to enable; false or omit to disable
-  config_snapshot_dir: "config_snapshots"
-
+  picker_summary: "sthelens_picker_summary.txt"
+  associator_summary: "sthelens_associator_summary.txt"
+  locator_summary: "sthelens_locator_summary.txt"
+  
 # Phase Picker Settings (EQTransformer)
 picker:
   model: "volpick"   # Pre-trained model optimized for volcanic seismicity
-  p_threshold: 0.10  # P-wave detection threshold
-  s_threshold: 0.10  # S-wave detection threshold
-  d_threshold: 0.10  # Detection threshold
+  p_threshold: 0.20  # P-wave detection threshold
+  s_threshold: 0.20  # S-wave detection threshold
+  d_threshold: 0.20  # Detection threshold
   use_cuda: true     # Use GPU acceleration if available
   
 # Event Association Settings (PyOcto)
@@ -88,13 +81,26 @@ locator:
   # Station format for NLL (STA uses station codes only)
   station_format: "STA"
   
-  # Optional: path to NonLinLoc LAYER-format 1D velocity model file (relative to cwd or absolute).
-  # If set, overrides the default in-memory volcano model. Example: wav2hyp/utils/nll_stratovolcano.txt
-  velocity_model_file: null
-  # velocity_model_file: "./utils/nll_stratovolcano.txt"
-  
-  # Grid and velocity model settings are controlled internally by NLLPy;
-  # wav2hyp only passes the global `--overwrite` flag through.
+  # Run vel2grid/grid2time (only needed once per velocity model)
+  run_vel2grid: true
+  run_grid2time: true
+
+  # Optional: custom velocity model for NonLinLoc (overrides nllpy volcano template).
+  # Each row: [depth_km, VpTop, VpGrad, VsTop, VsGrad, rhoTop, rhoGrad]
+  # velocity_model_layers:
+  #   - [0.0,  4.30, 0.0, 2.49, 0.0, 2.7, 0.0]
+  #   - [5.0,  5.33, 0.0, 3.08, 0.0, 2.7, 0.0]
+  #   - [10.0, 6.04, 0.0, 3.49, 0.0, 2.7, 0.0]
+
+  # Optional: pass-through overrides to nllpy NLLocConfig (grids, search, method, etc.)
+  # nllpy_overrides:
+  #   locgrid:
+  #     d_grid_x: 0.2
+  #     d_grid_y: 0.2
+  #     d_grid_z: 0.3
+  #   locmethod:
+  #     min_num_phases: 5
+  #     min_num_s_phases: 1
   
 # File Format Settings
 file_formats:

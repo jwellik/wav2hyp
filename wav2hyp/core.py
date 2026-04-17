@@ -8,7 +8,6 @@ waveform to hypocenter processing workflow.
 import os
 import time
 import logging
-import yaml
 from datetime import timedelta, datetime
 from pathlib import Path
 
@@ -25,15 +24,29 @@ from vdapseisutils.utils.obspyutils.client import VClient
 from .config_loader import load_config, validate_config, get_global_variables, print_config_summary
 from .utils.io import PickListX, DetectionListX, EQTOutput, PyOctoOutput, NLLOutput
 from .utils.geo import GeoArea
-from .utils.summary import (
-    SummaryExporter,
-    write_summary_txt_from_hdf5,
-    append_station_summary_rows,
-    date_already_processed_for_stage,
-    drop_summary_txt_rows_in_range,
-    station_summary_reset_for_overwrite,
-)
-from .utils.velocity import parse_nll_layer_file
+from .utils.summary import SummaryExporter
+
+
+def _apply_nllpy_overrides(config, overrides, logger=None):
+    """Apply nllpy_overrides from wav2hyp config to an nllpy NLLocConfig instance.
+    Nested dicts apply to config sub-objects (e.g. locgrid: { d_grid_x: 0.2 }).
+    """
+    for key, value in overrides.items():
+        if not hasattr(config, key):
+            if logger:
+                logger.warning(f"nllpy_overrides: unknown config key '{key}', skipping")
+            continue
+        sub = getattr(config, key)
+        if isinstance(value, dict) and not isinstance(sub, (list, dict)):
+            for k2, v2 in value.items():
+                if hasattr(sub, k2):
+                    if k2 == 'layers' and isinstance(v2, list):
+                        v2 = [tuple(row) for row in v2]
+                    setattr(sub, k2, v2)
+                elif logger:
+                    logger.warning(f"nllpy_overrides: unknown {key}.{k2}, skipping")
+        else:
+            setattr(config, key, value)
 
 
 class WAV2HYP:
@@ -111,7 +124,7 @@ class WAV2HYP:
             self.logger.info(f"Locator summary exporter initialized: {self.locator_summary_exporter.summary_file}")
         
         self.logger.info("WAV2HYP processor initialized")
-        print_config_summary(self.config, logger=self.logger)
+        print_config_summary(self.config)
         
     def _initialize_waveform_client(self):
         """Initialize waveform client using VClient with datasource parameter."""
@@ -179,26 +192,6 @@ class WAV2HYP:
             return f"{self.LOCATOR_OUTPUT_DIR}/{self.config['locator']['config_name']}/loc-{date.strftime('%Y-%m-%d')}"
         else:
             raise ValueError(f"Unknown step: {step}")
-
-    def _snapshot_config_if_enabled(self, date_str: str):
-        """
-        Write loaded config to output_base_dir/config_snapshot_dir/YYYY-MM-DD_configname.yaml
-        if output.config_snapshot_dir is set (non-empty string).
-        """
-        snapshot_dir = self.config.get('output', {}).get('config_snapshot_dir')
-        if not snapshot_dir or not isinstance(snapshot_dir, str) or not snapshot_dir.strip():
-            return
-        base_dir = Path(self.config['output']['base_dir'])
-        config_name = self.config['locator']['config_name']
-        out_dir = base_dir / snapshot_dir.strip()
-        out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / f"{date_str}_{config_name}.yaml"
-        try:
-            with open(out_path, 'w') as f:
-                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
-            self.logger.info(f"Config snapshot written: {out_path}")
-        except Exception as e:
-            self.logger.warning(f"Could not write config snapshot to {out_path}: {e}")
 
     def run(self, start_time, end_time, tproc='1d', run_picker=False, run_associator=False, run_locator=False, overwrite=False):
         """
@@ -293,87 +286,28 @@ class WAV2HYP:
         # Start timing
         timespan_start_time = time.perf_counter()
 
-        # Snapshot config per day if enabled
-        date_str = start_time.strftime('%Y-%m-%d')
-        self._snapshot_config_if_enabled(date_str)
-
         # Get output paths
         picker_output = self._get_output_path("picker")
         associator_output = self._get_output_path("associator")
         locator_output = self._get_output_path("locator")
 
-        # Overwrite cleanup (cascade): remove data for run stages + downstream only
-        if overwrite:
-            cleanup_stages = set()
-            if run_picker:
-                cleanup_stages.update(("picker", "associator", "locator"))
-            if run_associator:
-                cleanup_stages.update(("associator", "locator"))
-            if run_locator:
-                cleanup_stages.add("locator")
-            if "picker" in cleanup_stages:
-                eqt = EQTOutput(picker_output)
-                eqt.remove_range(start_time, end_time)
-                if self.picker_summary_exporter:
-                    drop_summary_txt_rows_in_range(
-                        str(self.picker_summary_exporter.summary_file), start_time, end_time
-                    )
-            if "associator" in cleanup_stages:
-                pyocto = PyOctoOutput(associator_output)
-                pyocto.remove_range(start_time, end_time)
-                if self.associator_summary_exporter:
-                    drop_summary_txt_rows_in_range(
-                        str(self.associator_summary_exporter.summary_file), start_time, end_time
-                    )
-            if "locator" in cleanup_stages:
-                nll = NLLOutput(locator_output)
-                nll.remove_range(start_time, end_time)
-                if self.locator_summary_exporter:
-                    drop_summary_txt_rows_in_range(
-                        str(self.locator_summary_exporter.summary_file), start_time, end_time
-                    )
-            if self.station_summary and cleanup_stages:
-                station_summary_reset_for_overwrite(
-                    self.BASE_OUTPUT_DIR,
-                    self.station_summary,
-                    cleanup_stages,
-                    start_time,
-                    end_time,
-                )
-
         # Step 1: Phase Picking
-        stream = None
-        detections = None
-        picker_skipped = associator_skipped = locator_skipped = False
         if not run_picker:
             self.logger.info("Reading existing picks (picker not requested)...")
             eqt_output = EQTOutput(picker_output)
             picks, detections, metadata = eqt_output.read(t1=start_time, t2=end_time)
-        elif not overwrite and date_already_processed_for_stage(picker_output, start_time, end_time):
-            self.logger.info("Picker: date %s already processed, skipping (use -o to overwrite)", date_str)
-            eqt_output = EQTOutput(picker_output)
-            picks, detections, metadata = eqt_output.read(t1=start_time, t2=end_time)
-            picker_skipped = True
         else:
-            picks, stream, detections = self._run_picker(start_time, end_time, picker_output, overwrite)
+            picks = self._run_picker(start_time, end_time, picker_output, overwrite)
 
         # Step 2: Event Association
-        assignments_df = None
-        associator_skipped = False
         if not run_associator:
             self.logger.info("Reading existing associations (associator not requested)...")
             pyocto_output = PyOctoOutput(associator_output)
-            catalog_assoc, _, assignments_df, _ = pyocto_output.read(t1=start_time, t2=end_time)
-        elif not overwrite and date_already_processed_for_stage(associator_output, start_time, end_time):
-            self.logger.info("Associator: date %s already processed, skipping (use -o to overwrite)", date_str)
-            pyocto_output = PyOctoOutput(associator_output)
-            catalog_assoc, _, assignments_df, _ = pyocto_output.read(t1=start_time, t2=end_time)
-            associator_skipped = True
+            catalog_assoc, _, _, _ = pyocto_output.read(t1=start_time, t2=end_time)
         else:
-            catalog_assoc, assignments_df = self._run_associator(picks, inventory, associator_output, start_time, end_time, overwrite)
+            catalog_assoc = self._run_associator(picks, inventory, associator_output, start_time, end_time, overwrite)
 
         # Step 3: Event Location
-        locator_skipped = False
         if not run_locator:
             self.logger.info("Reading existing locations (locator not requested)...")
             nll_output = NLLOutput(locator_output)
@@ -381,91 +315,12 @@ class WAV2HYP:
             if catalog is None:
                 self.logger.warning("No existing locator results found, using associator catalog")
                 catalog = catalog_assoc
-        elif not overwrite and date_already_processed_for_stage(locator_output, start_time, end_time):
-            self.logger.info("Locator: date %s already processed, skipping (use -o to overwrite)", date_str)
-            nll_output = NLLOutput(locator_output)
-            catalog, _ = nll_output.read(t1=start_time, t2=end_time)
-            if catalog is None:
-                catalog = catalog_assoc
-            locator_skipped = True
         else:
             catalog = self._run_locator(catalog_assoc, inventory, locator_output, start_time, end_time, overwrite)
 
-        any_stage_skipped = picker_skipped or associator_skipped or locator_skipped
-        if self.station_summary and not any_stage_skipped:
-            period_sec = parse_time_string(getattr(self, 'station_summary_period', '1h'))
-            for t_start, t_end in period_boundaries(start_time, end_time, period_sec):
-                period_str = period_start_string(t_start, period_sec)
-                if stream is not None:
-                    append_station_summary_rows(
-                        self.BASE_OUTPUT_DIR,
-                        self.station_summary,
-                        period_str,
-                        stream,
-                        picks,
-                        detections,
-                        assignments_df,
-                        arrivals_df=None,
-                        step='picker',
-                    )
-            if assignments_df is not None:
-                for t_start, t_end in period_boundaries(start_time, end_time, period_sec):
-                    period_str = period_start_string(t_start, period_sec)
-                    append_station_summary_rows(
-                        self.BASE_OUTPUT_DIR,
-                        self.station_summary,
-                        period_str,
-                        None,
-                        picks,
-                        detections,
-                        assignments_df,
-                        arrivals_df=None,
-                        step='associator',
-                    )
-            nll_out = NLLOutput(locator_output)
-            try:
-                arrivals_df = nll_out.read_arrivals(t1=start_time, t2=end_time)
-            except Exception:
-                arrivals_df = None
-            if arrivals_df is not None and len(arrivals_df) > 0:
-                cat_table = nll_out.read_catalog_table(t1=start_time, t2=end_time)
-                for t_start, t_end in period_boundaries(start_time, end_time, period_sec):
-                    period_str = period_start_string(t_start, period_sec)
-                    event_ids = set()
-                    if cat_table is not None and len(cat_table) > 0 and 'origin_time' in cat_table.columns:
-                        ot = pd.to_datetime(cat_table['origin_time'], utc=True, errors='coerce')
-                        mask = (ot >= pd.Timestamp(t_start.datetime, tz='UTC')) & (ot < pd.Timestamp(t_end.datetime, tz='UTC'))
-                        event_ids = set(cat_table.loc[mask, 'event_id'].astype(str).unique())
-                    arr_sub = arrivals_df[arrivals_df['event_id'].astype(str).isin(event_ids)] if event_ids else pd.DataFrame()
-                    append_station_summary_rows(
-                        self.BASE_OUTPUT_DIR,
-                        self.station_summary,
-                        period_str,
-                        None,
-                        picks,
-                        detections,
-                        assignments_df,
-                        arrivals_df=arr_sub if len(arr_sub) > 0 else None,
-                        step='locator',
-                    )
-            elif assignments_df is not None:
-                for t_start, t_end in period_boundaries(start_time, end_time, period_sec):
-                    period_str = period_start_string(t_start, period_sec)
-                    append_station_summary_rows(
-                        self.BASE_OUTPUT_DIR,
-                        self.station_summary,
-                        period_str,
-                        None,
-                        picks,
-                        detections,
-                        assignments_df,
-                        arrivals_df=None,
-                        step='locator',
-                    )
-
         # Calculate and log timespan execution time
         timespan_execution_time = time.perf_counter() - timespan_start_time
-        self.logger.info(f"Timespan completed. Execution time: {timespan_execution_time:.2f} seconds ({timespan_execution_time/60:2.1f} minutes)")
+        self.logger.info(f"Timespan completed. Execution time: {timespan_execution_time:.2f} seconds ({timespan_execution_time/60:.2f} minutes)")
         return catalog
 
     def _run_picker(self, start_time, end_time, output_path, overwrite=False):
@@ -537,75 +392,40 @@ class WAV2HYP:
             'D_threshold': self.d_threshold
         }
 
-        ncha = len(set(tr.id for tr in stream))
-        method_time = time.perf_counter() - method_start
-        period_seconds = parse_time_string(getattr(self, 'summary_table_period', '1h'))
-        picks_df = picks.to_dataframe() if hasattr(picks, 'to_dataframe') else pd.DataFrame()
-        detections_df = detections.to_dataframe() if hasattr(detections, 'to_dataframe') else pd.DataFrame()
-        summary_stats_list = []
-        for t_start, t_end in period_boundaries(start_time, end_time, period_seconds):
-            period_str = period_start_string(t_start, period_seconds)
-            if len(picks_df) > 0 and 'peak_time' in picks_df.columns:
-                pt = pd.to_datetime(picks_df['peak_time'], unit='s', utc=True)
-                mask = (pt >= pd.Timestamp(t_start.datetime, tz='UTC')) & (pt < pd.Timestamp(t_end.datetime, tz='UTC'))
-                sub_p = picks_df.loc[mask]
-                np_per = int((sub_p['phase'] == 'P').sum()) if 'phase' in sub_p.columns else 0
-                ns_per = int((sub_p['phase'] == 'S').sum()) if 'phase' in sub_p.columns else 0
-            else:
-                np_per, ns_per = (len(p_picks), len(s_picks)) if period_str == period_start_string(start_time, period_seconds) else (0, 0)
-            if len(detections_df) > 0 and 'peak_time' in detections_df.columns:
-                dt = pd.to_datetime(detections_df['peak_time'], unit='s', utc=True)
-                mask = (dt >= pd.Timestamp(t_start.datetime, tz='UTC')) & (dt < pd.Timestamp(t_end.datetime, tz='UTC'))
-                nd_per = int(mask.sum())
-            else:
-                nd_per = len(detections) if period_str == period_start_string(start_time, period_seconds) else 0
-            summary_stats_list.append({
-                'date': period_str,
+        eqt_output = EQTOutput(output_path, time_range=(start_time, end_time))
+        if not overwrite:
+            try:
+                existing_picks, existing_det, _ = eqt_output.read(t1=start_time, t2=end_time)
+                if (existing_picks is not None and len(existing_picks) > 0) or (existing_det is not None and len(existing_det) > 0):
+                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
+                else:
+                    eqt_output.write(picks, detections, metadata)
+            except (OSError, FileNotFoundError, KeyError):
+                eqt_output.write(picks, detections, metadata)
+        else:
+            eqt_output.write(picks, detections, metadata)
+        
+        # Update picker summary if enabled
+        if self.picker_summary_exporter:
+            date_str = start_time.strftime('%Y/%m/%d')
+            picker_stats = {
                 'config': self.config['locator']['config_name'],
-                'ncha': ncha,
-                'nsamp': sum(len(tr.data) for tr in stream),
-                'pick_model': picker_model,
-                'np': np_per,
-                'ns': ns_per,
-                'npicks': np_per + ns_per,
-                'ndetections': nd_per,
-                'p_thresh': self.p_threshold,
-                's_thresh': self.s_threshold,
-                'd_thresh': self.d_threshold,
-                't_exec_pick': method_time if period_str == period_start_string(start_time, period_seconds) else 0.0,
-            })
-        if not summary_stats_list:
-            summary_stats_list = [{
-                'date': period_start_string(start_time, period_seconds),
-                'config': self.config['locator']['config_name'],
-                'ncha': ncha,
+                'ncha': len(stream),
                 'nsamp': sum(len(tr.data) for tr in stream),
                 'pick_model': picker_model,
                 'np': len(p_picks),
                 'ns': len(s_picks),
                 'npicks': len(picks),
-                'ndetections': len(detections),
-                'p_thresh': self.p_threshold,
-                's_thresh': self.s_threshold,
-                'd_thresh': self.d_threshold,
-                't_exec_pick': method_time,
-            }]
-        eqt_output = EQTOutput(output_path, time_range=(start_time, end_time))
-        eqt_output.write(picks, detections, metadata, summary_stats=summary_stats_list)
-        
-        if self.picker_summary_exporter:
-            write_summary_txt_from_hdf5(
-                output_path,
-                str(self.picker_summary_exporter.summary_file),
-                'picker',
-                summary_text_period=getattr(self, 'summary_text_period', '1d'),
-            )
+                'ndetections': len(detections)
+            }
+            method_time = time.perf_counter() - method_start
+            self.picker_summary_exporter.update_entry(date_str, picker_stats, method_time)
         
         # Log method timing
         method_time = time.perf_counter() - method_start
         self.logger.info(f"Picker completed: {method_time:.2f}s ({method_time/60:2.1f} minutes)")
         
-        return picks, stream, detections
+        return picks
     
     def _run_associator(self, picks, inventory, output_path, start_time=None, end_time=None, overwrite=False):
         """Run event association with PyOcto."""
@@ -618,7 +438,7 @@ class WAV2HYP:
         # Check if there are picks to associate
         if picks is None or len(picks) == 0:
             self.logger.info("No picks available for association - skipping association processing")
-            return VCatalog(), None
+            return VCatalog()
         
         assoc_config = self.config['associator']
         
@@ -689,7 +509,7 @@ class WAV2HYP:
         
         if events_empty and assignments_empty:
             self.logger.info("No events or assignments to write - skipping file output")
-            return VCatalog(), (assignments_df if not assignments_empty else pd.DataFrame())
+            return VCatalog()
 
         # If we need to write data, ensure proper structure for empty DataFrames
         if events_empty:
@@ -705,79 +525,44 @@ class WAV2HYP:
                 'weight': pd.Series(dtype='float64')
             })
 
-        assoc_method_time = time.perf_counter() - method_start
-        associator_summary_stats_list = []
-        if start_time and end_time and events_df is not None and len(events_df) > 0:
-            period_seconds = parse_time_string(getattr(self, 'summary_table_period', '1h'))
-            if 'time' in events_df.columns:
-                et = pd.to_datetime(events_df['time'], utc=True, errors='coerce')
-                for t_start, t_end in period_boundaries(start_time, end_time, period_seconds):
-                    ts_lo = pd.Timestamp(t_start.datetime, tz='UTC')
-                    ts_hi = pd.Timestamp(t_end.datetime, tz='UTC')
-                    mask = (et >= ts_lo) & (et < ts_hi)
-                    ev_in_period = events_df.loc[mask]
-                    n_ev = len(ev_in_period)
-                    if assignments_df is not None and len(assignments_df) > 0 and 'event_idx' in assignments_df.columns and n_ev > 0:
-                        idx_in_period = set(ev_in_period.index)
-                        n_assign = int(assignments_df['event_idx'].isin(idx_in_period).sum())
-                    else:
-                        n_assign = 0
-                    associator_summary_stats_list.append({
-                        'date': period_start_string(t_start, period_seconds),
-                        'config': self.config['locator']['config_name'],
-                        'assoc_method': 'pyocto',
-                        'nassignments': n_assign,
-                        'nevents': n_ev,
-                        't_exec_assoc': assoc_method_time if period_start_string(t_start, period_seconds) == period_start_string(start_time, period_seconds) else 0.0,
-                    })
-            if not associator_summary_stats_list:
-                associator_summary_stats_list = [{
-                    'date': period_start_string(start_time, period_seconds),
-                    'config': self.config['locator']['config_name'],
-                    'assoc_method': 'pyocto',
-                    'nassignments': len(assignments_df) if assignments_df is not None else 0,
-                    'nevents': len(events_df) if events_df is not None else 0,
-                    't_exec_assoc': assoc_method_time,
-                }]
-        elif start_time:
-            associator_summary_stats_list = [{
-                'date': start_time.strftime('%Y/%m/%d'),
-                'config': self.config['locator']['config_name'],
-                'assoc_method': 'pyocto',
-                'nassignments': len(assignments_df) if assignments_df is not None else 0,
-                'nevents': len(events_df) if events_df is not None else 0,
-                't_exec_assoc': assoc_method_time,
-            }]
-        else:
-            associator_summary_stats_list = None
         time_range = (start_time, end_time) if start_time and end_time else None
         pyocto_output = PyOctoOutput(output_path, time_range=time_range)
-        self.logger.info(f"Writing associations to {output_path}")
-        pyocto_output.write(events_df, assignments_df, metadata, summary_stats=associator_summary_stats_list)
-
-        # Update is_associated on picks for this time range
-        if start_time and end_time and assignments_df is not None and len(assignments_df) > 0:
-            picker_output = self._get_output_path("picker")
-            eqt_out = EQTOutput(picker_output)
-            eqt_out.update_is_associated(start_time, end_time, assignments_df)
-
+        if not overwrite and start_time and end_time:
+            try:
+                catalog_existing, _, _, _ = pyocto_output.read(t1=start_time, t2=end_time)
+                if catalog_existing is not None and len(catalog_existing) > 0:
+                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
+                else:
+                    self.logger.info(f"Writing associations to {output_path}")
+                    pyocto_output.write(events_df, assignments_df, metadata)
+            except (OSError, FileNotFoundError, KeyError):
+                self.logger.info(f"Writing associations to {output_path}")
+                pyocto_output.write(events_df, assignments_df, metadata)
+        else:
+            self.logger.info(f"Writing associations to {output_path}")
+            pyocto_output.write(events_df, assignments_df, metadata)
+        
         # Create ObsPy Catalog object
         catalog = VCatalog.from_pyocto(events_df, assignments_df)
         
-        if self.associator_summary_exporter:
-            write_summary_txt_from_hdf5(
-                output_path,
-                str(self.associator_summary_exporter.summary_file),
-                'associator',
-                summary_text_period=getattr(self, 'summary_text_period', '1d'),
-            )
+        # Update associator summary if enabled
+        if self.associator_summary_exporter and start_time:
+            date_str = start_time.strftime('%Y/%m/%d')
+            associator_stats = {
+                'config': self.config['locator']['config_name'],
+                'assoc_method': 'pyocto',
+                'assignments': len(assignments_df) if assignments_df is not None else 0,
+                'events': len(events_df) if events_df is not None else 0
+            }
+            method_time = time.perf_counter() - method_start
+            self.associator_summary_exporter.update_entry(date_str, associator_stats, method_time)
         
         # Log method timing
         method_time = time.perf_counter() - method_start
         events_count = len(events_df) if events_df is not None else 0
         self.logger.info(f"Associator completed: {method_time:.2f}s ({method_time/60:2.1f} minutes)")
         
-        return catalog, assignments_df
+        return catalog
     
     def _run_locator(self, catalog_in, inventory, output_path, start_time=None, end_time=None, overwrite=False):
         """Run earthquake location with NonLinLoc."""
@@ -816,43 +601,26 @@ class WAV2HYP:
         config.filename = f"{name}.in"
         config.input_obs = (f"{obs}", "NLLOC_OBS")
         config.output_obs = f"{loc}/{name}"
-        # Optional: load velocity model from file (NonLinLoc LAYER format)
-        velocity_model_file = locator_config.get('velocity_model_file')
-        if velocity_model_file:
-            vel_path = os.path.abspath(os.path.expanduser(velocity_model_file))
-            if not os.path.isfile(vel_path):
-                self.logger.warning(f"Velocity model file not found: {vel_path}, using default")
-            else:
-                try:
-                    config.layer.layers = parse_nll_layer_file(vel_path)
-                    self.logger.info(f"Using velocity model from {vel_path}")
-                except (ValueError, FileNotFoundError) as e:
-                    self.logger.warning(f"Could not load velocity model from {vel_path}: {e}, using default")
         config.add_station_from_inventory(inventory, sta_fmt=locator_config['station_format'])
+
+        # Optional: user-defined velocity model (list of layers: depth_km, VpTop, VpGrad, VsTop, VsGrad, rhoTop, rhoGrad)
+        if locator_config.get('velocity_model_layers'):
+            config.layer.layers = [tuple(row) for row in locator_config['velocity_model_layers']]
+            self.logger.info(f"Using {len(config.layer.layers)} velocity layers from config")
+        # Optional: pass-through overrides to nllpy config (e.g. locgrid.d_grid_x, layer.layers, locmethod.*)
+        if locator_config.get('nllpy_overrides'):
+            _apply_nllpy_overrides(config, locator_config['nllpy_overrides'], self.logger)
+
         config.write_complete_control_file(os.path.join(nll_home, config.filename))
         self.logger.info(f"Writing NLL control file: ({os.path.join(nll_home, config.filename)})")
 
 
-        # Run NonLinLoc.
-        # Always call NLLPy's run_nlloc with its standard grid flags, and
-        # conditionally pass the global wav2hyp `overwrite` flag if the
-        # installed NLLPy version supports it.
-        import inspect
+        # Run NonLinLoc
         nll_run_start = time.perf_counter()
-
-        run_nlloc_kwargs = {
-            "vel2grid": True,
-            "grid2time": True,
-        }
-        try:
-            sig = inspect.signature(config.run_nlloc)
-            if "overwrite" in sig.parameters:
-                run_nlloc_kwargs["overwrite"] = overwrite
-        except (TypeError, ValueError):
-            # Fallback: call without overwrite for older NLLPy versions
-            pass
-
-        config.run_nlloc(**run_nlloc_kwargs)
+        config.run_nlloc(
+            vel2grid=locator_config.get('run_vel2grid', True),
+            grid2time=locator_config.get('run_grid2time', True)
+        )
         nll_run_time = time.perf_counter() - nll_run_start
         self.logger.info(f"NonLinLoc execution time: {nll_run_time:.2f}s ({nll_run_time/60:2.1f} minutes)")
 
@@ -861,8 +629,8 @@ class WAV2HYP:
         # TODO Use this to create a method read_nll_loc() in nllpy (recommended) or vdapseisutils
         from obspy.io.nlloc.core import read_nlloc_hyp
         import glob
-        full_search_path = os.path.join(nll_home, config.output_obs + "*.hyp")  # config.output_obs includes the prefix for the .hyp files
-        self.logger.info(f"Reading NonLinLoc hyp files: ({full_search_path})")
+        self.logger.info(f"Reading NonLinLoc hyp files: ({os.path.join(nll_home, config.output_obs + f"*.hyp")})")
+        full_search_path = os.path.join(nll_home, config.output_obs + f"*.hyp")  # config.output_obs includes the prefix for the .hyp files
         hyp_files = glob.glob(full_search_path)  # all .hyp files in the loc directory
         filtered_files = [f for f in hyp_files if 'sum' not in f]  # remove summary files
         # Read all filtered files
@@ -888,51 +656,33 @@ class WAV2HYP:
             self.logger.info("No locations to write - skipping file output")
             return VCatalog()
 
-        loc_method_time = time.perf_counter() - method_start
-        locator_summary_stats_list = None
-        if start_time and end_time and len(catalog_out) > 0:
-            period_seconds = parse_time_string(getattr(self, 'summary_table_period', '1h'))
-            from collections import defaultdict
-            nloc_per_period = defaultdict(int)
-            for ev in catalog_out:
-                ot = ev.preferred_origin() or (ev.origins[0] if ev.origins else None)
-                if ot is not None:
-                    t = UTCDateTime(ot.time)
-                    period_str = period_start_string(t, period_seconds)
-                    nloc_per_period[period_str] += 1
-            locator_summary_stats_list = []
-            for t_start, t_end in period_boundaries(start_time, end_time, period_seconds):
-                period_str = period_start_string(t_start, period_seconds)
-                nloc = nloc_per_period.get(period_str, 0)
-                locator_summary_stats_list.append({
-                    'date': period_str,
-                    'config': self.config['locator']['config_name'],
-                    'loc_method': 'nll',
-                    'nlocations': nloc,
-                    't_exec_loc': loc_method_time if period_str == period_start_string(start_time, period_seconds) else 0.0,
-                })
-        elif start_time:
-            locator_summary_stats_list = [{
-                'date': start_time.strftime('%Y/%m/%d'),
-                'config': self.config['locator']['config_name'],
-                'loc_method': 'nll',
-                'nlocations': len(catalog_out),
-                't_exec_loc': loc_method_time,
-            }]
-        else:
-            locator_summary_stats_list = None
         time_range = (start_time, end_time) if start_time and end_time else None
         nll_output = NLLOutput(output_path, time_range=time_range)
-        self.logger.info(f"Writing locations to {output_path}")
-        nll_output.write(catalog_out, metadata, summary_stats=locator_summary_stats_list)
+        if not overwrite and start_time and end_time:
+            try:
+                catalog_existing, _ = nll_output.read(t1=start_time, t2=end_time)
+                if catalog_existing is not None and len(catalog_existing) > 0:
+                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
+                else:
+                    self.logger.info(f"Writing locations to {output_path}")
+                    nll_output.write(catalog_out, metadata)
+            except (OSError, FileNotFoundError, KeyError):
+                self.logger.info(f"Writing locations to {output_path}")
+                nll_output.write(catalog_out, metadata)
+        else:
+            self.logger.info(f"Writing locations to {output_path}")
+            nll_output.write(catalog_out, metadata)
         
-        if self.locator_summary_exporter:
-            write_summary_txt_from_hdf5(
-                output_path,
-                str(self.locator_summary_exporter.summary_file),
-                'locator',
-                summary_text_period=getattr(self, 'summary_text_period', '1d'),
-            )
+        # Update locator summary if enabled
+        if self.locator_summary_exporter and start_time:
+            date_str = start_time.strftime('%Y/%m/%d')
+            locator_stats = {
+                'config': self.config['locator']['config_name'],
+                'loc_method': 'nll',
+                'locations': len(catalog_out)
+            }
+            method_time = time.perf_counter() - method_start
+            self.locator_summary_exporter.update_entry(date_str, locator_stats, method_time)
         
         # Log method timing
         method_time = time.perf_counter() - method_start
@@ -997,47 +747,13 @@ def parse_time_string(time_str):
         return float(time_str[:-1]) * 60 * 60
     elif time_str.endswith('m'):
         return float(time_str[:-1]) * 60
-    elif time_str.endswith('t'):
-        # 'T' suffix = minutes (e.g. pandas '10T' = 10 minutes)
-        return float(time_str[:-1]) * 60
     elif time_str.endswith('s'):
         return float(time_str[:-1])
     else:
         return float(time_str)
 
 
-def period_boundaries(start_time, end_time, period_seconds):
-    """
-    Yield (period_start, period_end) UTCDateTime pairs covering [start_time, end_time).
-    period_seconds is the bin width in seconds (e.g. 3600 for 1h).
-    """
-    if isinstance(start_time, str):
-        start_time = UTCDateTime(start_time)
-    if isinstance(end_time, str):
-        end_time = UTCDateTime(end_time)
-    t = UTCDateTime(int(start_time.timestamp) // int(period_seconds) * int(period_seconds))
-    while t < end_time:
-        t_end = t + period_seconds
-        yield (t, min(t_end, end_time))
-        t = t_end
-
-
-def period_start_string(t, period_seconds):
-    """
-    Return a string key for the period containing time t (e.g. for summary table 'date' column).
-    Uses sub-day resolution when period < 1 day: 'YYYY/MM/DDTHH' or 'YYYY/MM/DDTHH:MM' etc.
-    """
-    if isinstance(t, str):
-        t = UTCDateTime(t)
-    ts = int(t.timestamp) // int(period_seconds) * int(period_seconds)
-    t_rounded = UTCDateTime(ts)
-    if period_seconds >= 86400:
-        return t_rounded.strftime('%Y/%m/%d')
-    if period_seconds >= 3600:
-        return t_rounded.strftime('%Y/%m/%dT%H')
-    if period_seconds >= 60:
-        return t_rounded.strftime('%Y/%m/%dT%H:%M')
-    return t_rounded.strftime('%Y/%m/%dT%H:%M:%S')
+# def parse_time_string_dep(time_str):
 #     """
 #     Convert time string with units to minutes.
 #
