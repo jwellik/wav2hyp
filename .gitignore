@@ -15,6 +15,14 @@ venv/
 env/
 ENV/
 
+# OS / editor / IDE
+.DS_Store
+.cursor/
+
+# Backup files and dirs
+*.bak
+*.bak/
+
 # Local Development
 TODO.py
 results/sthelens*
@@ -22,9 +30,9 @@ results/*.bak
 *_local/
 analysis_local/
 .remote_compare/
-  __pycache__/
-  *.pyc
-  *.pyo
-  .env
-  .vscode/
-  .DS_Store
+qc_sandbox/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.vscode/
