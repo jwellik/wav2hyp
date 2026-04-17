@@ -6,6 +6,7 @@ from wav2hyp.utils.summary import (
     date_already_processed_for_stage,
     drop_summary_txt_rows_in_range,
     station_summary_reset_for_overwrite,
+    station_summary_stage_slice_h5_key,
 )
 from wav2hyp.utils.io import EQTOutput
 
@@ -64,27 +65,46 @@ def test_drop_summary_txt_rows_in_range_removes_rows(tmp_path):
 
 
 def test_station_summary_reset_for_overwrite_no_file():
-    """When station summary file does not exist, returns zeros."""
+    """When HDF5 stage files do not exist, returns 0 removed slices."""
     result = station_summary_reset_for_overwrite(
-        "/nonexistent", "station_summary.txt", {"locator"}, "2025-03-19", "2025-03-20"
+        "/nonexistent/picker.h5",
+        "/nonexistent/associator.h5",
+        "/nonexistent/locator.h5",
+        {"locator"},
+        "2025-03-19",
+        "2025-03-20",
+        station_summary_period_seconds=86400,
     )
-    assert result["rows_removed"] == 0 and result["rows_reset"] == 0
+    assert result["keys_removed"] == 0
+    assert result["by_stage"].get("locator") == 0
 
 
 def test_station_summary_reset_for_overwrite_locator_zeros_nevents(tmp_path):
-    """When only locator in cleanup_stages, nevents is zeroed for rows in date range."""
-    path = tmp_path / "station_summary.txt"
-    df = pd.DataFrame([
-        {"date": "2025/03/19", "trace_id": "A.B.C.D", "nevents": 5, "nassign": 3, "nassoc": 2},
-    ])
-    df.to_csv(path, index=False)
+    """When only locator in cleanup_stages, locator slice node is removed for that date range."""
+    picker_h5 = tmp_path / "picker.h5"
+    associator_h5 = tmp_path / "associator.h5"
+    locator_h5 = tmp_path / "locator.h5"
+
+    # Create one locator slice node for '2025/03/19'
+    date_str = "2025/03/19"
+    key = station_summary_stage_slice_h5_key("locator", date_str)
+    df = pd.DataFrame([{"date": date_str, "trace_id": "A.B.C.D", "nevents": 5}])
+    df.to_hdf(str(locator_h5), key=key, mode="w", format="fixed")
+
     result = station_summary_reset_for_overwrite(
-        str(tmp_path), "station_summary.txt", {"locator"}, "2025-03-19", "2025-03-20"
+        str(picker_h5),
+        str(associator_h5),
+        str(locator_h5),
+        {"locator"},
+        "2025-03-19",
+        "2025-03-20",
+        station_summary_period_seconds=86400,
     )
-    assert result["rows_removed"] == 0 and result["rows_reset"] == 1
-    out = pd.read_csv(path)
-    assert out["nevents"].iloc[0] == 0
-    assert out["nassign"].iloc[0] == 3 and out["nassoc"].iloc[0] == 2
+    assert result["keys_removed"] == 1
+    assert result["by_stage"].get("locator") == 1
+
+    with pd.HDFStore(str(locator_h5), mode="r") as store:
+        assert key not in store.keys()
 
 
 def test_eqt_remove_range_nonexistent(tmp_path):
