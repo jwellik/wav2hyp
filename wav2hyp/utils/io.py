@@ -552,6 +552,10 @@ class EQTOutput:
     def _write_picker_summary_and_histogram(self, stats_list, picks_df, detections_df,
                                            existing_summary_df=None, existing_hist_df=None):
         """Append one or more rows to summary table and histogram rows to pick_peak_histogram."""
+        # Allow callers/tests to pass a single dict.
+        if isinstance(stats_list, dict):
+            stats_list = [stats_list]
+
         rows = []
         for summary_stats in stats_list:
             date_str = summary_stats.get('date', '')
@@ -1098,6 +1102,86 @@ class PyOctoOutput:
         self.time_range = time_range  # (t1, t2) tuple for cleaning existing data
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
+    EVENTS_DATA_COLUMNS = [
+        "time",
+        "residual_rms",
+        "n_picks",
+        "n_p_picks",
+        "n_s_picks",
+    ]
+    ASSIGNMENTS_DATA_COLUMNS = [
+        "event_idx",
+        "station_id",
+        "phase",
+        "pick_time",
+    ]
+
+    @staticmethod
+    def _to_unix_seconds(t):
+        if t is None:
+            return None
+        if isinstance(t, str):
+            t = UTCDateTime(t)
+        if hasattr(t, "timestamp"):
+            return float(t.timestamp)
+        if hasattr(t, "datetime"):
+            return float(pd.Timestamp(t.datetime).timestamp())
+        return float(pd.Timestamp(t).timestamp())
+
+    @classmethod
+    def _where_time_bounds_seconds(cls, time_col: str, t1=None, t2=None):
+        ts_lo = cls._to_unix_seconds(t1)
+        ts_hi = cls._to_unix_seconds(t2)
+        if ts_lo is None and ts_hi is None:
+            return None
+        if ts_lo is not None and ts_hi is not None:
+            return f"({time_col} >= {ts_lo}) & ({time_col} <= {ts_hi})"
+        if ts_lo is not None:
+            return f"({time_col} >= {ts_lo})"
+        return f"({time_col} <= {ts_hi})"
+
+    def _write_events_table(self, events_df: pd.DataFrame, mode: str, append: bool = False):
+        try:
+            events_df.to_hdf(
+                self.output_path,
+                key="events",
+                mode=mode,
+                append=append,
+                format="table",
+                data_columns=self.EVENTS_DATA_COLUMNS,
+            )
+        except Exception:
+            if not append:
+                raise
+            _log.warning(
+                "Could not append events with indexed data_columns to %s; "
+                "falling back to non-indexed append. Reindex this file with "
+                "`python -m wav2hyp.tools.reindex_pyocto_h5`.",
+                self.output_path,
+            )
+            events_df.to_hdf(self.output_path, key="events", mode=mode, append=append, format="table")
+
+    def _write_assignments_table(self, assignments_df: pd.DataFrame, mode: str, append: bool = False):
+        try:
+            assignments_df.to_hdf(
+                self.output_path,
+                key="assignments",
+                mode=mode,
+                append=append,
+                format="table",
+                data_columns=self.ASSIGNMENTS_DATA_COLUMNS,
+            )
+        except Exception:
+            if not append:
+                raise
+            _log.warning(
+                "Could not append assignments with indexed data_columns to %s; "
+                "falling back to non-indexed append. Reindex this file with "
+                "`python -m wav2hyp.tools.reindex_pyocto_h5`.",
+                self.output_path,
+            )
+            assignments_df.to_hdf(self.output_path, key="assignments", mode=mode, append=append, format="table")
+
     def write(self, events_df, assignments_df, metadata, summary_stats=None):
         """
         Write PyOcto events and assignments to HDF5 file.
@@ -1153,15 +1237,15 @@ class PyOctoOutput:
             
             # Write combined data (overwrite file to avoid schema conflicts)
             if len(events_df) > 0:
-                events_df.to_hdf(self.output_path, key='events', mode='w', format='table')
+                self._write_events_table(events_df, mode="w", append=False)
             if len(assignments_df) > 0:
-                assignments_df.to_hdf(self.output_path, key='assignments', mode='a', format='table')
+                self._write_assignments_table(assignments_df, mode="a", append=False)
         else:
             # No time range specified or file doesn't exist, append normally
             if len(events_df) > 0:
-                events_df.to_hdf(self.output_path, key='events', mode='a', append=True, format='table')
+                self._write_events_table(events_df, mode="a", append=True)
             if len(assignments_df) > 0:
-                assignments_df.to_hdf(self.output_path, key='assignments', mode='a', append=True, format='table')
+                self._write_assignments_table(assignments_df, mode="a", append=True)
 
         with h5py.File(self.output_path, 'a') as f:
             f.attrs['metadata'] = json.dumps(metadata)
@@ -1330,23 +1414,47 @@ class PyOctoOutput:
         except (KeyError, FileNotFoundError):
             pass
         n_summary_before = len(existing_summary_df) if existing_summary_df is not None else 0
-        summary_df = _summary_df_drop_periods_in_range(existing_summary_df or pd.DataFrame(), t1, t2)
+        summary_df = _summary_df_drop_periods_in_range(
+            existing_summary_df if existing_summary_df is not None else pd.DataFrame(),
+            t1,
+            t2,
+        )
         summary_rows_removed = n_summary_before - len(summary_df)
         with h5py.File(self.output_path, "r") as f:
             metadata = json.loads(f.attrs.get("metadata", "{}"))
         os.remove(self.output_path)
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
         if len(events_f) > 0:
-            events_f.to_hdf(self.output_path, key="events", mode="w", format="table")
+            events_f.to_hdf(
+                self.output_path,
+                key="events",
+                mode="w",
+                format="table",
+                data_columns=self.EVENTS_DATA_COLUMNS,
+            )
         else:
             pd.DataFrame(columns=["time", "x", "y", "z", "latitude", "longitude", "depth", "residual_rms", "n_picks", "n_p_picks", "n_s_picks"]).to_hdf(
-                self.output_path, key="events", mode="w", format="table"
+                self.output_path,
+                key="events",
+                mode="w",
+                format="table",
+                data_columns=self.EVENTS_DATA_COLUMNS,
             )
         if len(assignments_f) > 0:
-            assignments_f.to_hdf(self.output_path, key="assignments", mode="a", format="table")
+            assignments_f.to_hdf(
+                self.output_path,
+                key="assignments",
+                mode="a",
+                format="table",
+                data_columns=self.ASSIGNMENTS_DATA_COLUMNS,
+            )
         else:
             pd.DataFrame(columns=["event_idx", "station_id", "phase", "pick_time", "residual", "weight"]).to_hdf(
-                self.output_path, key="assignments", mode="a", format="table"
+                self.output_path,
+                key="assignments",
+                mode="a",
+                format="table",
+                data_columns=self.ASSIGNMENTS_DATA_COLUMNS,
             )
         with h5py.File(self.output_path, "a") as f:
             f.attrs["metadata"] = json.dumps(metadata)
@@ -1360,6 +1468,44 @@ class PyOctoOutput:
             events_removed, assignments_removed, summary_rows_removed, t1, t2,
         )
         return {"events_removed": events_removed, "assignments_removed": assignments_removed, "summary_rows_removed": summary_rows_removed}
+
+    def read_events_table(self, t1=None, t2=None, where=None) -> pd.DataFrame:
+        """
+        Read events table with optional time bounds and extra where expression.
+
+        This is the fast path for notebook/table workflows that do not require
+        constructing a full VCatalog.
+        """
+        columns = ["time", "x", "y", "z", "latitude", "longitude", "depth", "residual_rms", "n_picks", "n_p_picks", "n_s_picks"]
+        if not os.path.exists(self.output_path):
+            return pd.DataFrame(columns=columns)
+        time_where = self._where_time_bounds_seconds("time", t1=t1, t2=t2)
+        if time_where and where:
+            full_where = f"({time_where}) & ({where})"
+        else:
+            full_where = time_where or where
+        try:
+            if full_where:
+                return pd.read_hdf(self.output_path, key="events", where=full_where)
+            return pd.read_hdf(self.output_path, key="events")
+        except ValueError:
+            # Older pyocto.h5 files may not have indexed data_columns; fall back to
+            # full read + in-memory filter so callers still get correct results.
+            try:
+                df = pd.read_hdf(self.output_path, key="events")
+            except (KeyError, FileNotFoundError):
+                return pd.DataFrame(columns=columns)
+            if len(df) == 0 or "time" not in df.columns:
+                return df
+            ts_lo = self._to_unix_seconds(t1)
+            ts_hi = self._to_unix_seconds(t2)
+            if ts_lo is not None:
+                df = df[df["time"] >= ts_lo]
+            if ts_hi is not None:
+                df = df[df["time"] <= ts_hi]
+            return df
+        except (KeyError, FileNotFoundError):
+            return pd.DataFrame(columns=columns)
 
     def read(self, t1=None, t2=None):
         """
@@ -1386,6 +1532,11 @@ class PyOctoOutput:
         other seismological tools. Time filtering is applied to event times.
         """
         print(f"Reading PyOcto output from {self.output_path}")
+        if t1 is not None or t2 is not None:
+            _log.info(
+                "PyOctoOutput.read() builds a full VCatalog before filtering and can be slow. "
+                "Use read_events_table(t1=..., t2=...) for fast table-only event queries."
+            )
 
         # Read in Events, Assignments DataFrames
         events_df = pd.read_hdf(self.output_path, key='events')
@@ -1560,6 +1711,68 @@ class NLLOutput:
         if ts_lo is not None:
             return f"({time_col} >= '{ts_lo}')"
         return f"({time_col} <= '{ts_hi}')"
+
+    @staticmethod
+    def _where_time_bounds_ns(time_col: str, t1=None, t2=None):
+        """
+        Build a PyTables where expression for inclusive [t1, t2] on columns stored as int64
+        nanoseconds (pandas datetime64[ns] in fixed-format HDF5 / PyTables).
+
+        Comparing ISO strings to these columns prevents index use and forces a full scan of
+        blosc-compressed chunks (very slow on large tables). Integer bounds match the on-disk
+        representation so indexed queries are fast.
+
+        Notes
+        -----
+        ``pd.read_hdf(..., where=...)`` may reject large int RHS values on some pandas versions;
+        prefer :meth:`_read_pytables_coords` + ``HDFStore.select(..., where=coords)``.
+        """
+        if t1 is None and t2 is None:
+            return None
+        if isinstance(t1, str):
+            t1 = UTCDateTime(t1)
+        if isinstance(t2, str):
+            t2 = UTCDateTime(t2)
+        ts_lo = pd.Timestamp(t1.datetime).value if t1 is not None else None
+        ts_hi = pd.Timestamp(t2.datetime).value if t2 is not None else None
+        if ts_lo is not None and ts_hi is not None:
+            return f"({time_col} >= {int(ts_lo)}) & ({time_col} <= {int(ts_hi)})"
+        if ts_lo is not None:
+            return f"({time_col} >= {int(ts_lo)})"
+        return f"({time_col} <= {int(ts_hi)})"
+
+    def _read_table_by_pytables_where(self, key: str, where_expr: str, empty_columns: list) -> pd.DataFrame:
+        """
+        Run a PyTables ``where`` using int64-friendly expressions, then decode rows via pandas
+        ``HDFStore.select(where=coordinates)`` (avoids pandas' ``read_hdf(where=...)`` pitfalls).
+        """
+        import tables as tb
+
+        if where_expr is None:
+            try:
+                return pd.read_hdf(self.output_path, key=key)
+            except (KeyError, FileNotFoundError, ValueError):
+                return pd.DataFrame(columns=empty_columns)
+
+        try:
+            with tb.open_file(self.output_path, "r") as f:
+                node = getattr(f.root, key, None)
+                if node is None:
+                    return pd.DataFrame(columns=empty_columns)
+                coords = node.table.get_where_list(where_expr, sort=True)
+        except (KeyError, FileNotFoundError, tb.NoSuchNodeError):
+            return pd.DataFrame(columns=empty_columns)
+
+        if len(coords) == 0:
+            return pd.DataFrame(columns=empty_columns)
+
+        try:
+            with pd.HDFStore(self.output_path, "r") as store:
+                if key not in store:
+                    return pd.DataFrame(columns=empty_columns)
+                return store.select(key, where=coords)
+        except (KeyError, FileNotFoundError, ValueError):
+            return pd.DataFrame(columns=empty_columns)
 
     @staticmethod
     def _creation_info_to_json(obj) -> str:
@@ -2007,14 +2220,15 @@ class NLLOutput:
                         event_ids.append(str(eid))
         event_ids = [str(eid) for eid in (event_ids or []) if eid is not None]
 
-        time_where = self._where_time_bounds("arrival_time", t1=t1, t2=t2)
+        time_where = self._where_time_bounds_ns("arrival_time", t1=t1, t2=t2)
 
         event_where = None
         if len(event_ids) > 0:
             # PyTables where() doesn't support SQL IN well; use OR chain for small sets.
             # For large sets, rely on time filtering instead.
             if len(event_ids) <= 2000:
-                ors = " | ".join([f'(event_id == \"{eid}\")' for eid in event_ids])
+                # HDF5 / PyTables store `event_id` as bytes; compare with b"..." literals.
+                ors = " | ".join([f"(event_id == {repr(str(eid).encode('utf-8'))})" for eid in event_ids])
                 event_where = f"({ors})"
             else:
                 print("WARNING: `event_ids` too large for where() OR-chain; ignoring event_id filter.")
@@ -2024,7 +2238,9 @@ class NLLOutput:
         else:
             where = time_where or event_where
 
-        df = pd.read_hdf(self.output_path, key="arrivals_table", where=where)
+        df = self._read_table_by_pytables_where(
+            "arrivals_table", where if where else None, NLLOutput.ARRIVALS_TABLE_COLUMNS
+        )
         if len(df) > 0:
             df["origin_time"] = pd.to_datetime(df["origin_time"], utc=True, errors="coerce")
             df["arrival_time"] = pd.to_datetime(df["arrival_time"], utc=True, errors="coerce")
@@ -2472,7 +2688,11 @@ class NLLOutput:
         except (KeyError, FileNotFoundError):
             pass
         n_summary_before = len(existing_summary_df) if existing_summary_df is not None else 0
-        summary_df = _summary_df_drop_periods_in_range(existing_summary_df or pd.DataFrame(), t1, t2)
+        summary_df = _summary_df_drop_periods_in_range(
+            existing_summary_df if existing_summary_df is not None else pd.DataFrame(),
+            t1,
+            t2,
+        )
         summary_rows_removed = n_summary_before - len(summary_df)
         metadata = {}
         try:
@@ -2560,15 +2780,14 @@ class NLLOutput:
         if not os.path.exists(self.output_path):
             return pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
         try:
-            time_where = self._where_time_bounds("origin_time", t1, t2)
+            time_where = self._where_time_bounds_ns("origin_time", t1, t2)
             if time_where and where:
                 full_where = f"({time_where}) & ({where})"
             else:
                 full_where = time_where or where
-            if full_where:
-                df = pd.read_hdf(self.output_path, key="catalog_table", where=full_where)
-            else:
-                df = pd.read_hdf(self.output_path, key="catalog_table")
+            df = self._read_table_by_pytables_where(
+                "catalog_table", full_where, NLLOutput.CATALOG_TABLE_COLUMNS
+            )
         except (KeyError, FileNotFoundError):
             return pd.DataFrame(columns=NLLOutput.CATALOG_TABLE_COLUMNS)
         if len(df) > 0:

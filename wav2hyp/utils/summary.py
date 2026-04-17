@@ -12,7 +12,7 @@ import csv
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Set, Iterable, Tuple
 import pandas as pd
 
 from obspy import UTCDateTime
@@ -24,6 +24,186 @@ _log = logging.getLogger("wav2hyp")
 
 # Stages in pipeline order; used for overwrite cascade (cleanup downstream only).
 STAGES_ORDER = ("picker", "associator", "locator")
+
+# Station summary table schema for append/upsert operations.
+STATION_SUMMARY_HEADER = ['date', 'trace_id', 'nsamples', 'ncha', 'np', 'ns', 'nd', 'nassign', 'nassoc', 'nevents']
+STATION_SUMMARY_MERGE_COLS = ['nassign', 'nassoc', 'nevents']
+
+STATION_SUMMARY_H5_ROOT = "/station_summary"
+STATION_SUMMARY_H5_STEPS: Tuple[str, ...] = ("picker", "associator", "locator")
+
+
+def station_summary_period_id(date_str: str) -> str:
+    """
+    Convert a human-readable station-summary 'date' string into a safe HDF5 key segment.
+
+    Examples:
+    - '2025/03/19' -> '2025-03-19'
+    - '2025/03/19T13' -> '2025-03-19T13'
+    - '2025/03/19T13:30' -> '2025-03-19T13-30'
+    """
+    s = str(date_str).strip()
+    return s.replace("/", "-").replace(":", "-")
+
+
+def station_summary_stage_slice_h5_key(step: str, date_str: str) -> str:
+    """Return the HDF5 node key for a stage slice for a given station-summary period."""
+    if step not in STATION_SUMMARY_H5_STEPS:
+        raise ValueError(f"Unknown station-summary stage slice step: {step}")
+    return f"{STATION_SUMMARY_H5_ROOT}/{step}/{station_summary_period_id(date_str)}"
+
+
+def _period_start_string(t: UTCDateTime, period_seconds: float) -> str:
+    """Match `wav2hyp.core.period_start_string` formatting for station-summary keys."""
+    period_seconds_i = int(period_seconds)
+    ts = int(t.timestamp) // period_seconds_i * period_seconds_i
+    t_rounded = UTCDateTime(ts)
+    if period_seconds_i >= 86400:
+        return t_rounded.strftime('%Y/%m/%d')
+    if period_seconds_i >= 3600:
+        return t_rounded.strftime('%Y/%m/%dT%H')
+    if period_seconds_i >= 60:
+        return t_rounded.strftime('%Y/%m/%dT%H:%M')
+    return t_rounded.strftime('%Y/%m/%dT%H:%M:%S')
+
+
+def _station_summary_period_boundaries(start_time, end_time, period_seconds: float) -> Iterable[str]:
+    """
+    Yield station-summary period 'date' strings covering [start_time, end_time).
+
+    This intentionally mirrors `wav2hyp.core.period_boundaries` behavior (bins are aligned
+    to the period and the first bin may start before `start_time`).
+    """
+    if isinstance(start_time, str):
+        start_time = UTCDateTime(start_time)
+    if isinstance(end_time, str):
+        end_time = UTCDateTime(end_time)
+
+    period_seconds_i = int(period_seconds)
+    t = UTCDateTime(int(start_time.timestamp) // period_seconds_i * period_seconds_i)
+    while t < end_time:
+        yield _period_start_string(t, period_seconds)
+        t = t + period_seconds_i
+
+
+def compute_station_summary_rows(
+    date_str: str,
+    stream,
+    picks,
+    detections,
+    assignments_df: Optional[pd.DataFrame],
+    arrivals_df: Optional[pd.DataFrame],
+) -> List[Dict[str, Any]]:
+    """
+    Compute one row per `trace_id` for a station-summary period.
+
+    Returned rows match `STATION_SUMMARY_HEADER` fields, and can be sliced for stage-specific storage.
+    """
+    # Collect trace_ids: from stream, or from picks/assignments/arrivals when stream is None
+    trace_ids: Set[str] = set()
+    if stream is not None and len(stream) > 0:
+        trace_ids.update(tr.id for tr in stream)
+    if picks is not None and len(picks) > 0:
+        try:
+            pick_df = PickListX(picks).to_dataframe()
+            if 'trace_id' in pick_df.columns:
+                trace_ids.update(pick_df['trace_id'].astype(str).unique())
+        except Exception:
+            pass
+    if assignments_df is not None and len(assignments_df) > 0 and 'trace_id' in assignments_df.columns:
+        trace_ids.update(assignments_df['trace_id'].astype(str).unique())
+    if (
+        assignments_df is not None
+        and len(assignments_df) > 0
+        and 'station_id' in assignments_df.columns
+        and not trace_ids
+    ):
+        for sta in assignments_df['station_id'].unique():
+            trace_ids.add(str(sta))
+    if arrivals_df is not None and len(arrivals_df) > 0 and 'trace_id' in arrivals_df.columns:
+        trace_ids.update(arrivals_df['trace_id'].astype(str).unique())
+
+    if not trace_ids:
+        return []
+
+    trace_ids_list = sorted(trace_ids)
+
+    nsamples_per_ch: Dict[str, int] = {}
+    if stream is not None and len(stream) > 0:
+        nsamples_per_ch = {tr.id: sum(len(t.data) for t in stream if t.id == tr.id) for tr in stream}
+
+    np_per_ch: Dict[str, int] = {}
+    ns_per_ch: Dict[str, int] = {}
+    nd_per_ch: Dict[str, int] = {}
+
+    if picks is not None and len(picks) > 0:
+        try:
+            pick_df = PickListX(picks).to_dataframe()
+            for tid in pick_df['trace_id'].astype(str).unique():
+                sub = pick_df[pick_df['trace_id'].astype(str) == tid]
+                np_per_ch[tid] = int((sub['phase'] == 'P').sum())
+                ns_per_ch[tid] = int((sub['phase'] == 'S').sum())
+        except Exception:
+            pass
+
+    if detections is not None and len(detections) > 0:
+        try:
+            det_df = DetectionListX(detections).to_dataframe()
+            for tid in det_df['trace_id'].astype(str).unique():
+                nd_per_ch[tid] = int(len(det_df[det_df['trace_id'].astype(str) == tid]))
+        except Exception:
+            pass
+
+    nassign_per_trace: Dict[str, int] = {}
+    nassoc_per_trace: Dict[str, int] = {}
+    nevents_per_trace: Dict[str, int] = {}
+
+    if assignments_df is not None and len(assignments_df) > 0:
+        if 'trace_id' in assignments_df.columns and 'event_idx' in assignments_df.columns:
+            for tid in assignments_df['trace_id'].astype(str).unique():
+                sub = assignments_df[assignments_df['trace_id'].astype(str) == tid]
+                nassign_per_trace[tid] = int(len(sub))
+                nassoc_per_trace[tid] = int(sub['event_idx'].nunique())
+                nevents_per_trace[tid] = int(sub['event_idx'].nunique())
+        elif 'station_id' in assignments_df.columns and 'event_idx' in assignments_df.columns:
+            for sta in assignments_df['station_id'].unique():
+                sub = assignments_df[assignments_df['station_id'] == sta]
+                nassign = int(len(sub))
+                nevents = int(sub['event_idx'].nunique())
+                for tid in trace_ids_list:
+                    if station_from_trace_id(tid) == str(sta):
+                        nassign_per_trace[tid] = nassign
+                        nassoc_per_trace[tid] = nevents
+                        nevents_per_trace[tid] = nevents
+
+    if (
+        arrivals_df is not None
+        and len(arrivals_df) > 0
+        and 'trace_id' in arrivals_df.columns
+        and 'event_id' in arrivals_df.columns
+    ):
+        for tid in arrivals_df['trace_id'].astype(str).unique():
+            nevents_per_trace[tid] = int(
+                arrivals_df[arrivals_df['trace_id'].astype(str) == tid]['event_id'].nunique()
+            )
+
+    new_rows: List[Dict[str, Any]] = []
+    for tid in trace_ids_list:
+        row = {
+            'date': date_str,
+            'trace_id': tid,
+            'nsamples': nsamples_per_ch.get(tid, 0),
+            'ncha': 1 if stream else 0,
+            'np': np_per_ch.get(tid, 0),
+            'ns': ns_per_ch.get(tid, 0),
+            'nd': nd_per_ch.get(tid, 0),
+            'nassign': nassign_per_trace.get(tid, 0),
+            'nassoc': nassoc_per_trace.get(tid, 0),
+            'nevents': nevents_per_trace.get(tid, 0),
+        }
+        new_rows.append(row)
+
+    return new_rows
 
 
 def date_already_processed_for_stage(hdf5_path: str, start_time, end_time) -> bool:
@@ -107,73 +287,65 @@ def drop_summary_txt_rows_in_range(txt_path: str, t1, t2) -> int:
 
 
 def station_summary_reset_for_overwrite(
-    base_output_dir: str,
-    summary_filename: str,
+    picker_hdf5_path: str,
+    associator_hdf5_path: str,
+    locator_hdf5_path: str,
     cleanup_stages: set,
     t1,
     t2,
+    station_summary_period_seconds: float,
 ) -> dict:
     """
-    For overwrite cleanup: reset or remove station summary rows for the given date range.
-    - If 'picker' in cleanup_stages: remove entire rows for that date.
-    - Else if 'associator' in cleanup_stages: for rows with that date, set nassign, nassoc, nevents to 0.
-    - Else if 'locator' in cleanup_stages: for rows with that date, set nevents to 0.
+    Overwrite cleanup for station summary stage slices stored in HDF5.
 
-    Parameters
-    ----------
-    base_output_dir : str
-        Base output directory (same as append_station_summary_rows).
-    summary_filename : str
-        Station summary filename (e.g. from config output.station_summary).
-    cleanup_stages : set of str
-        Subset of {'picker', 'associator', 'locator'} (stages being overwritten + downstream).
-    t1, t2
-        UTCDateTime or str. Date range to affect.
-
-    Returns
-    -------
-    dict
-        For logging: rows_removed (when picker in set), or rows_reset (count of rows whose columns were zeroed).
+    This is range-based at the *period-slice* key level: we remove only the relevant
+    `station_summary/{step}/{period_id}` nodes instead of rewriting a monolithic CSV.
     """
-    path = Path(base_output_dir) / summary_filename
-    if not path.exists():
-        return {"rows_removed": 0, "rows_reset": 0}
-    try:
-        df = pd.read_csv(path)
-    except Exception:
-        return {"rows_removed": 0, "rows_reset": 0}
-    if df is None or len(df) == 0 or "date" not in df.columns:
-        return {"rows_removed": 0, "rows_reset": 0}
-    ts_lo = pd.Timestamp(UTCDateTime(t1).datetime, tz="UTC")
-    ts_hi = pd.Timestamp(UTCDateTime(t2).datetime, tz="UTC")
-    mask_in_range = []
-    for _, row in df.iterrows():
-        ts = _parse_summary_date(row.get("date"))
-        in_range = ts is not None and ts_lo <= ts <= ts_hi
-        mask_in_range.append(in_range)
-    mask_in_range = pd.Series(mask_in_range, index=df.index)
-    n_in_range = mask_in_range.sum()
-    if n_in_range == 0:
-        return {"rows_removed": 0, "rows_reset": 0}
-    if "picker" in cleanup_stages:
-        df_out = df[~mask_in_range].copy()
-        df_out.to_csv(path, index=False)
-        _log.info("Station summary: removed %d rows for range %s to %s", n_in_range, t1, t2)
-        return {"rows_removed": int(n_in_range), "rows_reset": 0}
-    cols_to_zero = []
-    if "associator" in cleanup_stages:
-        cols_to_zero.extend(["nassign", "nassoc", "nevents"])
-    elif "locator" in cleanup_stages:
-        cols_to_zero.append("nevents")
-    if not cols_to_zero:
-        return {"rows_removed": 0, "rows_reset": 0}
-    df = df.copy()
-    for c in cols_to_zero:
-        if c in df.columns:
-            df.loc[mask_in_range, c] = 0
-    df.to_csv(path, index=False)
-    _log.info("Station summary: reset %s for %d rows in range %s to %s", cols_to_zero, n_in_range, t1, t2)
-    return {"rows_removed": 0, "rows_reset": int(n_in_range)}
+    stage_to_path = {
+        "picker": picker_hdf5_path,
+        "associator": associator_hdf5_path,
+        "locator": locator_hdf5_path,
+    }
+
+    period_dates = list(_station_summary_period_boundaries(t1, t2, station_summary_period_seconds))
+    if not period_dates:
+        return {"keys_removed": 0, "by_stage": {}}
+
+    keys_removed_total = 0
+    by_stage: Dict[str, int] = {}
+
+    for step in cleanup_stages:
+        if step not in stage_to_path:
+            continue
+        h5_path = stage_to_path[step]
+        path = Path(h5_path)
+        if not path.exists():
+            by_stage[step] = 0
+            continue
+
+        removed_this_stage = 0
+        try:
+            with pd.HDFStore(str(path), "a") as store:
+                existing_keys = set(store.keys())
+                for date_str in period_dates:
+                    key = station_summary_stage_slice_h5_key(step, date_str)
+                    if key in existing_keys:
+                        store.remove(key)
+                        removed_this_stage += 1
+        except Exception:
+            removed_this_stage = 0
+
+        by_stage[step] = removed_this_stage
+        keys_removed_total += removed_this_stage
+
+    _log.info(
+        "Station summary overwrite cleanup removed %d period-slices for range [%s, %s]: %s",
+        keys_removed_total,
+        t1,
+        t2,
+        by_stage,
+    )
+    return {"keys_removed": keys_removed_total, "by_stage": by_stage}
 
 
 def infer_step_from_hdf5(hdf5_path: str) -> str:
@@ -456,6 +628,192 @@ def append_station_summary_rows(
     out_df = out_df.sort_values(['date', 'trace_id']).reset_index(drop=True)
     out_df.to_csv(path, index=False)
     _log.info("Wrote station summary to %s, %d rows", path, len(out_df))
+
+
+class StationSummaryAccumulator:
+    """
+    In-memory station summary upserter.
+
+    This avoids the original read/modify/write cycle for every `period_boundaries`
+    iteration. Instead, we load once, accumulate updates in memory, and write once.
+    """
+
+    def __init__(self, base_output_dir: str, summary_filename: str):
+        self.header = STATION_SUMMARY_HEADER
+        self.merge_cols = STATION_SUMMARY_MERGE_COLS
+        self.path = Path(base_output_dir) / summary_filename
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.rows_by_key: Dict[tuple, Dict[str, Any]] = {}
+        existing_df = None
+        if self.path.exists():
+            try:
+                existing_df = pd.read_csv(self.path)
+                _log.info("Loaded station summary from %s, %d rows", self.path, len(existing_df))
+                if 'trace_id' not in existing_df.columns and 'channel_id' in existing_df.columns:
+                    existing_df['trace_id'] = existing_df['channel_id']
+            except Exception:
+                existing_df = None
+
+        if (
+            existing_df is not None
+            and len(existing_df) > 0
+            and 'date' in existing_df.columns
+            and 'trace_id' in existing_df.columns
+        ):
+            for _, r in existing_df.iterrows():
+                k = (str(r['date']), str(r['trace_id']))
+                self.rows_by_key[k] = {c: r.get(c, 0) for c in self.header if c in r}
+                if 'trace_id' not in self.rows_by_key[k]:
+                    self.rows_by_key[k]['trace_id'] = str(r['trace_id'])
+
+    def _compute_new_rows(
+        self,
+        date_str: str,
+        stream,
+        picks,
+        detections,
+        assignments_df: Optional[pd.DataFrame],
+        arrivals_df: Optional[pd.DataFrame],
+    ) -> List[Dict[str, Any]]:
+        # Collect trace_ids: from stream, or from picks/assignments/arrivals when stream is None
+        trace_ids = set()
+        if stream is not None and len(stream) > 0:
+            trace_ids.update(tr.id for tr in stream)
+        if picks is not None and len(picks) > 0:
+            try:
+                pick_df = PickListX(picks).to_dataframe()
+                if 'trace_id' in pick_df.columns:
+                    trace_ids.update(pick_df['trace_id'].astype(str).unique())
+            except Exception:
+                pass
+        if assignments_df is not None and len(assignments_df) > 0 and 'trace_id' in assignments_df.columns:
+            trace_ids.update(assignments_df['trace_id'].astype(str).unique())
+        if (
+            assignments_df is not None
+            and len(assignments_df) > 0
+            and 'station_id' in assignments_df.columns
+            and not trace_ids
+        ):
+            for sta in assignments_df['station_id'].unique():
+                trace_ids.add(str(sta))
+        if arrivals_df is not None and len(arrivals_df) > 0 and 'trace_id' in arrivals_df.columns:
+            trace_ids.update(arrivals_df['trace_id'].astype(str).unique())
+        if not trace_ids:
+            return []
+
+        trace_ids = sorted(trace_ids)
+
+        nsamples_per_ch = {}
+        if stream is not None and len(stream) > 0:
+            nsamples_per_ch = {tr.id: sum(len(t.data) for t in stream if t.id == tr.id) for tr in stream}
+        np_per_ch = {}
+        ns_per_ch = {}
+        nd_per_ch = {}
+        if picks is not None and len(picks) > 0:
+            try:
+                pick_df = PickListX(picks).to_dataframe()
+                for tid in pick_df['trace_id'].astype(str).unique():
+                    sub = pick_df[pick_df['trace_id'].astype(str) == tid]
+                    np_per_ch[tid] = int((sub['phase'] == 'P').sum())
+                    ns_per_ch[tid] = int((sub['phase'] == 'S').sum())
+            except Exception:
+                pass
+        if detections is not None and len(detections) > 0:
+            try:
+                det_df = DetectionListX(detections).to_dataframe()
+                for tid in det_df['trace_id'].astype(str).unique():
+                    nd_per_ch[tid] = int(len(det_df[det_df['trace_id'].astype(str) == tid]))
+            except Exception:
+                pass
+
+        nassign_per_trace = {}
+        nassoc_per_trace = {}
+        nevents_per_trace = {}
+        if assignments_df is not None and len(assignments_df) > 0:
+            if 'trace_id' in assignments_df.columns and 'event_idx' in assignments_df.columns:
+                for tid in assignments_df['trace_id'].astype(str).unique():
+                    sub = assignments_df[assignments_df['trace_id'].astype(str) == tid]
+                    nassign_per_trace[tid] = int(len(sub))
+                    nassoc_per_trace[tid] = int(sub['event_idx'].nunique())
+                    nevents_per_trace[tid] = int(sub['event_idx'].nunique())
+            elif 'station_id' in assignments_df.columns and 'event_idx' in assignments_df.columns:
+                for sta in assignments_df['station_id'].unique():
+                    sub = assignments_df[assignments_df['station_id'] == sta]
+                    nassign = int(len(sub))
+                    nevents = int(sub['event_idx'].nunique())
+                    for tid in trace_ids:
+                        if station_from_trace_id(tid) == str(sta):
+                            nassign_per_trace[tid] = nassign
+                            nassoc_per_trace[tid] = nevents
+                            nevents_per_trace[tid] = nevents
+
+        if (
+            arrivals_df is not None
+            and len(arrivals_df) > 0
+            and 'trace_id' in arrivals_df.columns
+            and 'event_id' in arrivals_df.columns
+        ):
+            for tid in arrivals_df['trace_id'].astype(str).unique():
+                nevents_per_trace[tid] = int(
+                    arrivals_df[arrivals_df['trace_id'].astype(str) == tid]['event_id'].nunique()
+                )
+
+        new_rows: List[Dict[str, Any]] = []
+        for tid in trace_ids:
+            row = {
+                'date': date_str,
+                'trace_id': tid,
+                'nsamples': nsamples_per_ch.get(tid, 0),
+                'ncha': 1 if stream else 0,
+                'np': np_per_ch.get(tid, 0),
+                'ns': ns_per_ch.get(tid, 0),
+                'nd': nd_per_ch.get(tid, 0),
+                'nassign': nassign_per_trace.get(tid, 0),
+                'nassoc': nassoc_per_trace.get(tid, 0),
+                'nevents': nevents_per_trace.get(tid, 0),
+            }
+            new_rows.append(row)
+        return new_rows
+
+    def upsert(
+        self,
+        date_str: str,
+        stream,
+        picks,
+        detections,
+        assignments_df: Optional[pd.DataFrame],
+        arrivals_df: Optional[pd.DataFrame],
+        step: str,
+    ) -> None:
+        new_rows = self._compute_new_rows(
+            date_str=date_str,
+            stream=stream,
+            picks=picks,
+            detections=detections,
+            assignments_df=assignments_df,
+            arrivals_df=arrivals_df,
+        )
+        if not new_rows:
+            return
+
+        for row in new_rows:
+            k = (str(row['date']), str(row['trace_id']))
+            if k in self.rows_by_key and step != 'picker':
+                for col in self.merge_cols:
+                    self.rows_by_key[k][col] = row[col]
+            else:
+                self.rows_by_key[k] = row
+
+    def write(self) -> None:
+        out_df = pd.DataFrame(list(self.rows_by_key.values()), columns=self.header)
+        if len(out_df) == 0:
+            out_df.to_csv(self.path, index=False)
+            _log.info("Wrote station summary to %s, 0 rows", self.path)
+            return
+        out_df = out_df.sort_values(['date', 'trace_id']).reset_index(drop=True)
+        out_df.to_csv(self.path, index=False)
+        _log.info("Wrote station summary to %s, %d rows", self.path, len(out_df))
 
 
 class SummaryExporter:
