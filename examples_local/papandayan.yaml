@@ -10,6 +10,8 @@ target:
 
 # Times of Interest
 # 2026-01-07 to 2026-01-08  # Data available from Sulis
+# 2026-01-07 has about 6 locatable earthquakes
+# 2026-01-08 has about 16 locatable earthquakes
   
 # SDS filesystem
 waveform_client:
