@@ -3,11 +3,11 @@
 ## Metadata
 
 - **Branch**: fix/duplicate-p-s-picks
-- **Status**: open
+- **Status**: closed
 - **Opened on**: 2026-04-18
-- **Closed on**: -
-- **Merged into**: -
-- **Merge strategy**: -
+- **Closed on**: 2026-04-18
+- **Merged into**: main
+- **Merge strategy**: fast-forward/rebase
 - **Last updated**: 2026-04-18
 
 ## Accomplishments
@@ -44,4 +44,5 @@
 
 ## Final changelog-style outcome
 
-- _(To be filled when the branch is closed.)_
+- Tightened EQTransformer annotation channel selectors (`*_P`, `*_S`, `*_Detection`) to reduce spurious P/S duplicate picks; added optional `picker.eqt_annotation_dir` MiniSEED archive of annotated streams (per UTC day).
+- Picker/associator/locator overwrite cascade with HDF5 `summary_stats` skips, `is_associated` clearing for re-association without re-pick, and related tests/docs.
