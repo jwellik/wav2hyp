@@ -558,24 +558,33 @@ class WAV2HYP:
         # Extract picks from the probability traces
         from seisbench.models.base import WaveformModel
         from seisbench.util.annotations import PickList
+
+        # EQTransformer returns picks by creating streams
+        # with the following trace_ids:
+        # - net.station.location.EQTransformer_P
+        # - net.station.location.EQTransformer_S
+        # - net.station.location.EQTransformer_Detection
+        
+        # We need to extract the picks from the annotated stream
+        # by selecting the traces with the corresponding trace_ids.
         
         # Extract P picks
         p_picks = WaveformModel.picks_from_annotations(
-            st_annotated.select(channel="*P*"),
+            st_annotated.select(channel="*_P"),
             threshold=self.p_threshold,
             phase="P"
         )
         
         # Extract S picks
         s_picks = WaveformModel.picks_from_annotations(
-            st_annotated.select(channel="*S*"),
+            st_annotated.select(channel="*_S"),
             threshold=self.s_threshold,
             phase="S"
         )
         
         # Extract detections
         detections = WaveformModel.detections_from_annotations(
-            st_annotated.select(channel="*Detection*"),
+            st_annotated.select(channel="*_Detection"),
             threshold=self.d_threshold
         )
         
