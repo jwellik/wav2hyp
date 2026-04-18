@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# On non-trunk branches: validate branch summary, bump Last updated, regenerate timeline.
+set -e
+cd "$(git rev-parse --show-toplevel)"
+
+branch=$(git symbolic-ref -q --short HEAD || true)
+if [[ -z "$branch" ]]; then
+  exit 0
+fi
+case "$branch" in
+  main|master|trunk) exit 0 ;;
+esac
+
+safe=${branch//\//_}
+summary="docs/branch/BRANCH_SUMMARY_${safe}.md"
+if [[ ! -f "$summary" ]]; then
+  echo "pre-commit: missing $summary — run: python3 scripts/branch_docs.py ensure-summary $branch" >&2
+  exit 1
+fi
+
+python3 scripts/branch_docs.py validate-summary "$summary"
+python3 scripts/branch_docs.py touch-last-updated "$summary"
+python3 scripts/branch_docs.py regenerate-timeline
+
+git add "$summary" docs/branch/BRANCH_TIMELINE.md 2>/dev/null || true

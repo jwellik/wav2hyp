@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# After checkout: scaffold branch summary if missing; refresh timeline.
+set -e
+prev_head="$1"
+new_head="$2"
+branch_checkout="$3"
+
+if [[ "$branch_checkout" != "1" ]]; then
+  exit 0
+fi
+
+cd "$(git rev-parse --show-toplevel)"
+branch=$(git symbolic-ref -q --short HEAD || true)
+if [[ -z "$branch" ]]; then
+  exit 0
+fi
+
+python3 scripts/branch_docs.py ensure-summary "$branch"
+python3 scripts/branch_docs.py regenerate-timeline
