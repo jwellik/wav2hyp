@@ -111,5 +111,6 @@ Cleanup details:
 - Stage output HDF5 files are cleaned by calling the stage output object’s `remove_range(t1, t2)`.
 - Per-stage summary `.txt` files (when configured) have rows in-range removed.
 - Station summary stage slices are cleaned by deleting only the affected HDF5 nodes for the period range in each cleanup stage (`/station_summary/<step>/<period_id>`). This avoids reading/re-writing a monolithic station summary text file.
+- When overwrite re-runs the **associator** but **not** the picker, existing picks in the picks HDF5 for that range have `is_associated` cleared to `False` so stale association flags are not kept after association results are removed.
 
 After cleanup, the pipeline runs requested stages as usual and writes fresh outputs for the chunk. Station summary text (`output.station_summary`) is generated once per `run()` by joining stage slices from picker/associator/locator HDF5 outputs. See [Data structures](data-structures.md) for stage summary columns and station-summary slice layout.

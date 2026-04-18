@@ -1059,6 +1059,86 @@ class EQTOutput:
             n_true,
         )
 
+    def clear_is_associated_in_range(self, t1, t2):
+        """
+        Set ``is_associated`` to False for all picks with peak_time in [t1, t2].
+
+        Used after associator/locator cascade cleanup when the picker stage was not
+        re-run, so stale association flags do not remain on existing picks. (Bools are
+        used for PyTables serialization; semantics match "not associated".)
+
+        Returns
+        -------
+        dict
+            ``picks_cleared``: number of pick rows in range that were updated.
+        """
+        if not os.path.exists(self.output_path):
+            return {"picks_cleared": 0}
+        where_in = self._where_time_bounds("peak_time", t1, t2)
+        where_out = self._where_outside_time_bounds("peak_time", t1, t2)
+        if where_in is None:
+            return {"picks_cleared": 0}
+        try:
+            picks_in = pd.read_hdf(self.output_path, key="picks", where=where_in)
+        except (KeyError, FileNotFoundError):
+            return {"picks_cleared": 0}
+        except Exception:
+            picks_df_full = pd.read_hdf(self.output_path, key="picks")
+            t1_dt = UTCDateTime(t1).datetime if isinstance(t1, str) else t1.datetime
+            t2_dt = UTCDateTime(t2).datetime if isinstance(t2, str) else t2.datetime
+            mask = (picks_df_full["peak_time"] >= t1_dt) & (picks_df_full["peak_time"] <= t2_dt)
+            picks_in = picks_df_full.loc[mask].copy()
+        n_in = len(picks_in)
+        if n_in == 0:
+            return {"picks_cleared": 0}
+        picks_in = picks_in.copy()
+        picks_in["is_associated"] = False
+
+        if where_out is not None:
+            try:
+                picks_out = pd.read_hdf(self.output_path, key="picks", where=where_out)
+            except (TypeError, ValueError):
+                picks_df_full = pd.read_hdf(self.output_path, key="picks")
+                t1_dt = UTCDateTime(t1).datetime if isinstance(t1, str) else t1.datetime
+                t2_dt = UTCDateTime(t2).datetime if isinstance(t2, str) else t2.datetime
+                mask = (picks_df_full["peak_time"] < t1_dt) | (picks_df_full["peak_time"] > t2_dt)
+                picks_out = picks_df_full.loc[mask].copy()
+        else:
+            picks_out = pd.DataFrame()
+        if "is_associated" not in picks_out.columns and len(picks_out) > 0:
+            picks_out = picks_out.copy()
+            picks_out["is_associated"] = pd.NA
+
+        picks_df = pd.concat([picks_out, picks_in], ignore_index=True) if len(picks_out) else picks_in
+        picks_df = picks_df.sort_values("peak_time").reset_index(drop=True)
+
+        with pd.HDFStore(self.output_path, "a") as store:
+            if "picks" in store:
+                del store["picks"]
+        if len(picks_df) > 0:
+            picks_df.to_hdf(
+                self.output_path,
+                key="picks",
+                mode="a",
+                format="table",
+                data_columns=self.PICKS_DATA_COLUMNS,
+            )
+        try:
+            with h5py.File(self.output_path, "r") as f:
+                meta = f.attrs.get("metadata", None)
+            if meta is not None:
+                with h5py.File(self.output_path, "a") as f:
+                    f.attrs["metadata"] = meta
+        except Exception:
+            pass
+        _log.info(
+            "Cleared is_associated for %d picks in [%s, %s] (association overwrite without re-pick).",
+            n_in,
+            t1,
+            t2,
+        )
+        return {"picks_cleared": n_in}
+
 
 class PyOctoOutput:
     """

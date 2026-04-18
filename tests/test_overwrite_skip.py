@@ -1,6 +1,8 @@
 """Tests for overwrite/skip behavior: date_already_processed_for_stage, drop_summary_txt_rows_in_range, remove_range."""
 
 import pandas as pd
+import pytest
+from obspy import UTCDateTime
 
 from wav2hyp.utils.summary import (
     date_already_processed_for_stage,
@@ -113,3 +115,51 @@ def test_eqt_remove_range_nonexistent(tmp_path):
     eqt = EQTOutput(str(out_path))
     counts = eqt.remove_range("2025-03-19", "2025-03-20")
     assert counts["picks_removed"] == 0 and counts["detections_removed"] == 0
+
+
+def test_cleanup_stages_for_overwrite_sets():
+    """Cascade stage sets match docs: picker clears all; associator clears assoc+loc."""
+    pytest.importorskip("vdapseisutils")
+    from wav2hyp.core import WAV2HYP
+
+    assert WAV2HYP._cleanup_stages_for_overwrite(True, False, False) == frozenset(
+        {"picker", "associator", "locator"}
+    )
+    assert WAV2HYP._cleanup_stages_for_overwrite(False, True, False) == frozenset(
+        {"associator", "locator"}
+    )
+    assert WAV2HYP._cleanup_stages_for_overwrite(False, False, True) == frozenset({"locator"})
+    assert WAV2HYP._cleanup_stages_for_overwrite(False, False, False) == frozenset()
+
+
+def test_clear_is_associated_in_range_clears_flags(tmp_path):
+    """clear_is_associated_in_range sets is_associated to False for picks in the window."""
+    t0 = UTCDateTime("2025-03-19T12:00:00")
+    t_out = UTCDateTime("2025-03-18T12:00:00")
+    h5 = tmp_path / "picks.h5"
+    df_in = pd.DataFrame(
+        {
+            "trace_id": ["NET.STA..BH1", "NET.STA..BH2"],
+            "start_time": [t0.datetime, t0.datetime],
+            "end_time": [t0.datetime, t0.datetime],
+            "peak_time": [t0.datetime, t_out.datetime],
+            "peak_value": [0.5, 0.4],
+            "phase": ["P", "P"],
+            "is_associated": [True, True],
+        }
+    )
+    df_in.to_hdf(
+        h5,
+        key="picks",
+        mode="w",
+        format="table",
+        data_columns=["peak_time", "is_associated", "peak_value"],
+    )
+    eqt = EQTOutput(str(h5))
+    out = eqt.clear_is_associated_in_range("2025-03-19", "2025-03-19T23:59:59")
+    assert out["picks_cleared"] == 1
+    df2 = pd.read_hdf(h5, key="picks")
+    in_win = df2[df2["trace_id"] == "NET.STA..BH1"]
+    out_win = df2[df2["trace_id"] == "NET.STA..BH2"]
+    assert bool(in_win["is_associated"].iloc[0]) is False
+    assert bool(out_win["is_associated"].iloc[0]) is True

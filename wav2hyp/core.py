@@ -24,7 +24,13 @@ from vdapseisutils.utils.obspyutils.client import VClient
 from .config_loader import load_config, validate_config, get_global_variables, print_config_summary
 from .utils.io import PickListX, DetectionListX, EQTOutput, PyOctoOutput, NLLOutput
 from .utils.geo import GeoArea
-from .utils.summary import SummaryExporter
+from .utils.summary import (
+    STAGES_ORDER,
+    SummaryExporter,
+    date_already_processed_for_stage,
+    drop_summary_txt_rows_in_range,
+    station_summary_reset_for_overwrite,
+)
 
 
 def _apply_nllpy_overrides(config, overrides, logger=None):
@@ -249,6 +255,114 @@ class WAV2HYP:
         else:
             raise ValueError(f"Unknown step: {step}")
 
+    @staticmethod
+    def _cleanup_stages_for_overwrite(run_picker, run_associator, run_locator):
+        """Stages whose HDF5 outputs must be cleared for a cascading overwrite (see docs/workflow.md)."""
+        if run_picker:
+            return frozenset({"picker", "associator", "locator"})
+        if run_associator:
+            return frozenset({"associator", "locator"})
+        if run_locator:
+            return frozenset({"locator"})
+        return frozenset()
+
+    def _cascade_overwrite_cleanup(self, t1, t2, run_picker, run_associator, run_locator):
+        """
+        Remove existing outputs in [t1, t2] for all stages that will be re-run and downstream stages.
+
+        Called once per timespan from _process_timespan when overwrite is True.
+        """
+        cleanup_stages = self._cleanup_stages_for_overwrite(run_picker, run_associator, run_locator)
+        if not cleanup_stages:
+            self.logger.info(
+                "Overwrite is set but no pipeline stages are selected for this run; skipping cascade cleanup."
+            )
+            return
+
+        self.logger.info(
+            "Cascading overwrite: removing existing outputs for range [%s, %s]; cleanup_stages=%s",
+            t1,
+            t2,
+            ", ".join(sorted(cleanup_stages)),
+        )
+
+        picker_path = self._get_output_path("picker")
+        associator_path = self._get_output_path("associator")
+        locator_path = self._get_output_path("locator")
+
+        for step in STAGES_ORDER:
+            if step not in cleanup_stages:
+                continue
+            if step == "picker":
+                counts = EQTOutput(picker_path).remove_range(t1, t2)
+                self.logger.info(
+                    "Cascade picker removal summary: picks_removed=%d detections_removed=%d "
+                    "summary_rows_removed=%d histogram_rows_removed=%d",
+                    counts.get("picks_removed", 0),
+                    counts.get("detections_removed", 0),
+                    counts.get("summary_rows_removed", 0),
+                    counts.get("histogram_rows_removed", 0),
+                )
+            elif step == "associator":
+                counts = PyOctoOutput(associator_path).remove_range(t1, t2)
+                self.logger.info(
+                    "Cascade associator removal summary: events_removed=%d assignments_removed=%d "
+                    "summary_rows_removed=%d",
+                    counts.get("events_removed", 0),
+                    counts.get("assignments_removed", 0),
+                    counts.get("summary_rows_removed", 0),
+                )
+            else:
+                counts = NLLOutput(locator_path).remove_range(t1, t2)
+                self.logger.info(
+                    "Cascade locator removal summary: catalog_rows_removed=%d arrivals_rows_removed=%d "
+                    "summary_rows_removed=%d",
+                    counts.get("catalog_rows_removed", 0),
+                    counts.get("arrivals_rows_removed", 0),
+                    counts.get("summary_rows_removed", 0),
+                )
+
+        if "associator" in cleanup_stages and "picker" not in cleanup_stages:
+            cleared = EQTOutput(picker_path).clear_is_associated_in_range(t1, t2)
+            self.logger.info(
+                "Cascade: cleared is_associated on %d picks in range (re-association without re-pick).",
+                cleared.get("picks_cleared", 0),
+            )
+
+        if self.station_summary:
+            station_summary_period_seconds = parse_time_string(self.station_summary_period)
+            ss_result = station_summary_reset_for_overwrite(
+                picker_path,
+                associator_path,
+                locator_path,
+                set(cleanup_stages),
+                t1,
+                t2,
+                station_summary_period_seconds=station_summary_period_seconds,
+            )
+            self.logger.info(
+                "Station summary slice cleanup: removed %d HDF5 period-slices; by_stage=%s",
+                ss_result.get("keys_removed", 0),
+                ss_result.get("by_stage", {}),
+            )
+
+        for step, exporter in (
+            ("picker", self.picker_summary_exporter),
+            ("associator", self.associator_summary_exporter),
+            ("locator", self.locator_summary_exporter),
+        ):
+            if step in cleanup_stages and exporter is not None:
+                removed = drop_summary_txt_rows_in_range(str(exporter.summary_file), t1, t2)
+                self.logger.info(
+                    "Per-stage summary CSV %s: removed %d rows in overwrite range",
+                    exporter.summary_file,
+                    removed,
+                )
+
+        self.logger.info(
+            "Cascading overwrite finished for range [%s, %s].", t1, t2
+        )
+
     def run(self, start_time, end_time, tproc='1d', run_picker=False, run_associator=False, run_locator=False, overwrite=False):
         """
         Run the complete WAV2HYP processing pipeline.
@@ -347,6 +461,11 @@ class WAV2HYP:
         associator_output = self._get_output_path("associator")
         locator_output = self._get_output_path("locator")
 
+        if overwrite:
+            self._cascade_overwrite_cleanup(
+                start_time, end_time, run_picker, run_associator, run_locator
+            )
+
         # Step 1: Phase Picking
         if not run_picker:
             self.logger.info("Reading existing picks (picker not requested)...")
@@ -380,9 +499,37 @@ class WAV2HYP:
         return catalog
 
     def _run_picker(self, start_time, end_time, output_path, overwrite=False):
-        """Run phase picking with EQTransformer."""
+        """
+        Run phase picking with EQTransformer.
+
+        When ``overwrite`` is True, cascading removal for ``[start_time, end_time]`` has
+        already been performed in :meth:`_process_timespan` via
+        :meth:`_cascade_overwrite_cleanup`. Do not repeat cascade cleanup here; run
+        picking and write outputs.
+        """
         method_start = time.perf_counter()
-        
+
+        if not overwrite:
+            if date_already_processed_for_stage(output_path, start_time, end_time):
+                self.logger.info(
+                    "Picker stage already processed for this chunk (HDF5 summary); loading picks from disk."
+                )
+                eqt_output = EQTOutput(output_path)
+                picks, _, _ = eqt_output.read(t1=start_time, t2=end_time)
+                return picks
+            try:
+                eqt_probe = EQTOutput(output_path)
+                existing_picks, existing_det, _ = eqt_probe.read(t1=start_time, t2=end_time)
+                if (existing_picks is not None and len(existing_picks) > 0) or (
+                    existing_det is not None and len(existing_det) > 0
+                ):
+                    self.logger.info(
+                        "Existing picker data for range (legacy file without summary row); loading from HDF5."
+                    )
+                    return existing_picks
+            except (OSError, FileNotFoundError, KeyError):
+                pass
+
         self.logger.info(f"Downloading waveforms from {start_time} to {end_time}...")
         
         # Time waveform gathering
@@ -449,53 +596,83 @@ class WAV2HYP:
             'D_threshold': self.d_threshold
         }
 
-        eqt_output = EQTOutput(output_path, time_range=(start_time, end_time))
-        if not overwrite:
-            try:
-                existing_picks, existing_det, _ = eqt_output.read(t1=start_time, t2=end_time)
-                if (existing_picks is not None and len(existing_picks) > 0) or (existing_det is not None and len(existing_det) > 0):
-                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
-                else:
-                    eqt_output.write(picks, detections, metadata)
-            except (OSError, FileNotFoundError, KeyError):
-                eqt_output.write(picks, detections, metadata)
-        else:
-            eqt_output.write(picks, detections, metadata)
-        
-        # Update picker summary if enabled
-        if self.picker_summary_exporter:
-            date_str = start_time.strftime('%Y/%m/%d')
-            picker_stats = {
-                'config': self.config['locator']['config_name'],
-                'ncha': len(stream),
-                'nsamp': sum(len(tr.data) for tr in stream),
-                'pick_model': picker_model,
-                'np': len(p_picks),
-                'ns': len(s_picks),
-                'npicks': len(picks),
-                'ndetections': len(detections)
-            }
-            method_time = time.perf_counter() - method_start
-            self.picker_summary_exporter.update_entry(date_str, picker_stats, method_time)
-        
-        # Log method timing
         method_time = time.perf_counter() - method_start
+        date_str = start_time.strftime("%Y/%m/%d")
+        summary_stats = {
+            "date": date_str,
+            "config": self.config["locator"]["config_name"],
+            "ncha": len(stream),
+            "nsamp": sum(len(tr.data) for tr in stream),
+            "pick_model": picker_model,
+            "np": len(p_picks),
+            "ns": len(s_picks),
+            "npicks": len(picks),
+            "ndetections": len(detections),
+            "p_thresh": self.p_threshold,
+            "s_thresh": self.s_threshold,
+            "d_thresh": self.d_threshold,
+            "t_exec_pick": method_time,
+        }
+        eqt_output = EQTOutput(output_path, time_range=(start_time, end_time))
+        eqt_output.write(picks, detections, metadata, summary_stats=summary_stats)
+
+        if self.picker_summary_exporter:
+            picker_stats = {
+                "config": self.config["locator"]["config_name"],
+                "ncha": len(stream),
+                "nsamp": sum(len(tr.data) for tr in stream),
+                "pick_model": picker_model,
+                "np": len(p_picks),
+                "ns": len(s_picks),
+                "npicks": len(picks),
+                "ndetections": len(detections),
+                "p_thresh": self.p_threshold,
+                "s_thresh": self.s_threshold,
+                "d_thresh": self.d_threshold,
+            }
+            self.picker_summary_exporter.update_entry(date_str, picker_stats, method_time)
+
         self.logger.info(f"Picker completed: {method_time:.2f}s ({method_time/60:2.1f} minutes)")
         
         return picks
     
     def _run_associator(self, picks, inventory, output_path, start_time=None, end_time=None, overwrite=False):
-        """Run event association with PyOcto."""
+        """
+        Run event association with PyOcto.
+
+        When ``overwrite`` is True, cascading removal for the active time window has
+        already been performed in :meth:`_process_timespan` via
+        :meth:`_cascade_overwrite_cleanup`. Do not repeat cascade cleanup here.
+        """
         method_start = time.perf_counter()
 
         start_time_msg = "---" if start_time is None else f"{start_time}"
         end_time_msg = "---" if end_time is None else f"{end_time}"
         self.logger.info(f"Running event association from {start_time_msg} to {end_time_msg}...")
-        
+
         # Check if there are picks to associate
         if picks is None or len(picks) == 0:
             self.logger.info("No picks available for association - skipping association processing")
             return VCatalog()
+
+        if not overwrite and start_time and end_time:
+            if date_already_processed_for_stage(output_path, start_time, end_time):
+                self.logger.info(
+                    "Associator stage already processed for this chunk (HDF5 summary); loading from disk."
+                )
+                pyocto_output = PyOctoOutput(output_path)
+                catalog_assoc, _, _, _ = pyocto_output.read(t1=start_time, t2=end_time)
+                return catalog_assoc
+            try:
+                pyocto_probe = PyOctoOutput(output_path)
+                catalog_existing, _, _, _ = pyocto_probe.read(t1=start_time, t2=end_time)
+                if catalog_existing is not None and len(catalog_existing) > 0:
+                    self.logger.info(
+                        "Existing association data for range (legacy file without summary row); loading from HDF5."
+                    )
+                    return catalog_existing
+            except (OSError, FileNotFoundError, KeyError):
+                pass
         
         assoc_config = self.config['associator']
         
@@ -592,56 +769,75 @@ class WAV2HYP:
 
         time_range = (start_time, end_time) if start_time and end_time else None
         pyocto_output = PyOctoOutput(output_path, time_range=time_range)
-        if not overwrite and start_time and end_time:
-            try:
-                catalog_existing, _, _, _ = pyocto_output.read(t1=start_time, t2=end_time)
-                if catalog_existing is not None and len(catalog_existing) > 0:
-                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
-                else:
-                    self.logger.info(f"Writing associations to {output_path}")
-                    pyocto_output.write(events_df, assignments_df, metadata)
-            except (OSError, FileNotFoundError, KeyError):
-                self.logger.info(f"Writing associations to {output_path}")
-                pyocto_output.write(events_df, assignments_df, metadata)
-        else:
-            self.logger.info(f"Writing associations to {output_path}")
-            pyocto_output.write(events_df, assignments_df, metadata)
-        
+        self.logger.info(f"Writing associations to {output_path}")
+        method_time = time.perf_counter() - method_start
+        date_str = start_time.strftime("%Y/%m/%d") if start_time else ""
+        summary_stats = {
+            "date": date_str,
+            "config": self.config["locator"]["config_name"],
+            "assoc_method": "pyocto",
+            "nassignments": len(assignments_df) if assignments_df is not None else 0,
+            "nevents": len(events_df) if events_df is not None else 0,
+            "t_exec_assoc": method_time,
+        }
+        pyocto_output.write(events_df, assignments_df, metadata, summary_stats=summary_stats)
+
         # Create ObsPy Catalog object
         catalog = VCatalog.from_pyocto(events_df, assignments_df)
-        
-        # Update associator summary if enabled
+
         if self.associator_summary_exporter and start_time:
-            date_str = start_time.strftime('%Y/%m/%d')
             associator_stats = {
-                'config': self.config['locator']['config_name'],
-                'assoc_method': 'pyocto',
-                'assignments': len(assignments_df) if assignments_df is not None else 0,
-                'events': len(events_df) if events_df is not None else 0
+                "config": self.config["locator"]["config_name"],
+                "assoc_method": "pyocto",
+                "nassignments": len(assignments_df) if assignments_df is not None else 0,
+                "nevents": len(events_df) if events_df is not None else 0,
             }
-            method_time = time.perf_counter() - method_start
             self.associator_summary_exporter.update_entry(date_str, associator_stats, method_time)
-        
-        # Log method timing
-        method_time = time.perf_counter() - method_start
-        events_count = len(events_df) if events_df is not None else 0
+
         self.logger.info(f"Associator completed: {method_time:.2f}s ({method_time/60:2.1f} minutes)")
         
         return catalog
     
     def _run_locator(self, catalog_in, inventory, output_path, start_time=None, end_time=None, overwrite=False):
-        """Run earthquake location with NonLinLoc."""
+        """
+        Run earthquake location with NonLinLoc.
+
+        When ``overwrite`` is True, cascading removal for the active time window has
+        already been performed in :meth:`_process_timespan` via
+        :meth:`_cascade_overwrite_cleanup`. Do not repeat cascade cleanup here.
+        """
         method_start = time.perf_counter()
-        
+
         import nllpy
-        
+
         self.logger.info(f"Running earthquake location from {start_time} to {end_time}...")
-        
+
         # Check if catalog has events
         if len(catalog_in) == 0:
             self.logger.info("No associations in catalog - skipping location processing")
             return VCatalog()
-        
+
+        if not overwrite and start_time and end_time:
+            if date_already_processed_for_stage(output_path, start_time, end_time):
+                self.logger.info(
+                    "Locator stage already processed for this chunk (HDF5 summary); loading from disk."
+                )
+                nll_output = NLLOutput(output_path)
+                catalog, _ = nll_output.read(t1=start_time, t2=end_time)
+                if catalog is None:
+                    return VCatalog()
+                return catalog
+            try:
+                nll_probe = NLLOutput(output_path)
+                catalog_existing, _ = nll_probe.read(t1=start_time, t2=end_time)
+                if catalog_existing is not None and len(catalog_existing) > 0:
+                    self.logger.info(
+                        "Existing locator data for range (legacy file without summary row); loading from HDF5."
+                    )
+                    return catalog_existing
+            except (OSError, FileNotFoundError, KeyError):
+                pass
+
         locator_config = self.config['locator']
         nll_home = locator_config['nll_home']
         name = locator_config['config_name']
@@ -740,34 +936,26 @@ class WAV2HYP:
 
         time_range = (start_time, end_time) if start_time and end_time else None
         nll_output = NLLOutput(output_path, time_range=time_range)
-        if not overwrite and start_time and end_time:
-            try:
-                catalog_existing, _ = nll_output.read(t1=start_time, t2=end_time)
-                if catalog_existing is not None and len(catalog_existing) > 0:
-                    self.logger.info("Output already exists for this time range, skipping write (use -o to overwrite)")
-                else:
-                    self.logger.info(f"Writing locations to {output_path}")
-                    nll_output.write(catalog_out, metadata)
-            except (OSError, FileNotFoundError, KeyError):
-                self.logger.info(f"Writing locations to {output_path}")
-                nll_output.write(catalog_out, metadata)
-        else:
-            self.logger.info(f"Writing locations to {output_path}")
-            nll_output.write(catalog_out, metadata)
-        
-        # Update locator summary if enabled
-        if self.locator_summary_exporter and start_time:
-            date_str = start_time.strftime('%Y/%m/%d')
-            locator_stats = {
-                'config': self.config['locator']['config_name'],
-                'loc_method': 'nll',
-                'locations': len(catalog_out)
-            }
-            method_time = time.perf_counter() - method_start
-            self.locator_summary_exporter.update_entry(date_str, locator_stats, method_time)
-        
-        # Log method timing
+        self.logger.info(f"Writing locations to {output_path}")
         method_time = time.perf_counter() - method_start
+        date_str = start_time.strftime("%Y/%m/%d") if start_time else ""
+        summary_stats = {
+            "date": date_str,
+            "config": self.config["locator"]["config_name"],
+            "loc_method": "nll",
+            "nlocations": len(catalog_out),
+            "t_exec_loc": method_time,
+        }
+        nll_output.write(catalog_out, metadata, summary_stats=summary_stats)
+
+        if self.locator_summary_exporter and start_time:
+            locator_stats = {
+                "config": self.config["locator"]["config_name"],
+                "loc_method": "nll",
+                "nlocations": len(catalog_out),
+            }
+            self.locator_summary_exporter.update_entry(date_str, locator_stats, method_time)
+
         self.logger.info(f"Locator completed: {method_time:.2f}s ({method_time/60:2.1f} minutes)")
         
         return catalog_out
