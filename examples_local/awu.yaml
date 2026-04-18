@@ -1,0 +1,120 @@
+# WAV2HYP Configuration File
+# Waveform to Hypocenter Processing Pipeline
+
+# Target of Interest (Volcano/Study Area)
+target:
+  name: "Awu"
+  latitude: 3.689
+  longitude: 125.447
+  elevation: 1318  # meters
+
+# Times of Interest
+# 2023/06/19–2024/07/31 - Complete range of available data
+# 2024/01/09 - Highest event rate in early 2024
+# ~2023/12/03–2023/12/12 - High event rates
+# 2023/10/29–2023/10/39 - Drum recorder images
+
+# Waveform Data Client
+waveform_client:
+  datasource: "/VDAP-NAS/jwellik/DATA/CVGHM/DATA-SEISMIK-AWU-sds"  # SDS Top directory
+  
+# Station Inventory
+inventory:
+  file: "./examples_local/awu_inventory.xml"
+  
+# Output Directory Configuration
+output:
+  base_dir: "./results_local/awu"
+  picker_dir: "picks"
+  associator_dir: "associations" 
+  locator_dir: "locations"
+  log_dir: "logs"
+  summary_filename: "awu_qc_summary.txt"
+
+  
+# Phase Picker Settings (EQTransformer)
+picker:
+  model: "volpick"   # Pre-trained model optimized for volcanic seismicity
+  p_threshold: 0.10  # P-wave detection threshold
+  s_threshold: 0.10  # S-wave detection threshold
+  d_threshold: 0.10  # Detection threshold
+  use_cuda: true     # Use GPU acceleration if available
+  eqt_annotation_dir: "./results_local/awu/eqt_annotations"  # MiniSEED archive of annotate() output; None to disable
+
+# Event Association Settings (PyOcto)
+associator:
+  # Search Area
+  radius_km: 250.0          # Search radius around target (km)
+  depth_limits: [-5, 50]    # Min/max depth (km, negative = above sea level)
+  
+  # Velocity Model (0D)
+  p_velocity: 4.5           # P-wave velocity (km/s)
+  s_velocity: 2.5           # S-wave velocity (km/s) 
+  tolerance: 2.0            # Pick association tolerance (seconds)
+  association_cutoff: 250   # Maximum association distance (km)
+  time_before: 300.0        # Time window to look back for picks (seconds)
+  
+  # Event Quality Criteria
+  min_p_picks: 4            # Minimum P picks required for event
+  min_s_picks: 0            # Minimum S picks required for event
+  min_p_and_s_picks: 0      # Minimum stations with both P and S picks
+  
+# Event Location Settings (NonLinLoc)
+locator:
+  # NonLinLoc working directory (must contain velocity models and grids)
+  nll_home: "./results_local/awu/locations/nll_awu"
+  
+  # Configuration name for NLL control files
+  config_name: "awu"
+  
+  # Station format for NLL (STA uses station codes only)
+  station_format: "STA"
+  
+  # Grid and velocity model settings are controlled internally by NLLPy;
+  # wav2hyp only passes the global `--overwrite` flag through.
+  
+# File Format Settings
+file_formats:
+  # HDF5 compression settings
+  hdf5_compression:
+    complevel: 9            # Compression level (0-9, 9=max)
+    complib: "blosc"        # Compression library
+    
+  # PyASDF settings for QuakeML storage
+  pyasdf:
+    fallback_to_xml: true   # Create XML files if PyASDF unavailable
+    
+# Processing Control
+processing:
+  # Data validation
+  validate_inventory: true   # Check inventory file exists
+  validate_output_dirs: true # Create output directories if needed
+  
+# Logging Configuration
+logging:
+  level: "INFO"             # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  
+# Metadata Storage
+metadata:
+  # Additional attributes to store with results
+  processing_version: "2.0"
+  author: "WAV2HYP Pipeline"
+  institution: "CVGHM"
+  
+  # Data provenance tracking
+  track_processing_time: true
+  track_data_ranges: true
+  track_parameters: true
+
+# Advanced Settings
+advanced:
+  # Memory management
+  max_memory_gb: 8.0        # Maximum memory usage hint
+  
+  # Error handling
+  continue_on_error: false  # Stop processing on first error
+  
+  # Temporary files
+  cleanup_temp_files: true  # Remove temporary files after processing
+  temp_dir: "/tmp"          # Directory for temporary files

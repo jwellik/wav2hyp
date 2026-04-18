@@ -100,6 +100,10 @@ def validate_config(config):
         if not os.path.exists(datasource):
             print(f"Warning: Datasource path does not exist: {datasource}")
     # For FDSN providers and other non-filesystem datasources, no validation needed
+
+    # Optional: directory for EQTransformer annotated-stream MiniSEED (None = disabled)
+    if 'eqt_annotation_dir' not in config['picker']:
+        config['picker']['eqt_annotation_dir'] = None
     
     # Create output directories if validation enabled
     if config.get('processing', {}).get('validate_output_dirs', True):
@@ -111,6 +115,9 @@ def validate_config(config):
             os.path.join(base_dir, config['output']['log_dir']),
             config['locator']['nll_home']
         ]
+        ead = config['picker'].get('eqt_annotation_dir')
+        if ead:
+            dirs_to_create.append(ead)
         
         for directory in dirs_to_create:
             os.makedirs(directory, exist_ok=True)
@@ -222,6 +229,8 @@ def print_config_summary(config, logger=None):
     picker = config['picker']
     _out(f"Picker Model: {picker['model']}")
     _out(f"Thresholds - P: {picker['p_threshold']}, S: {picker['s_threshold']}, D: {picker['d_threshold']}")
+    if picker.get('eqt_annotation_dir'):
+        _out(f"EQ annotation archive (MiniSEED): {picker['eqt_annotation_dir']}")
 
     # Associator settings
     assoc = config['associator']

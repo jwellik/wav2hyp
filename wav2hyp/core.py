@@ -6,13 +6,14 @@ waveform to hypocenter processing workflow.
 """
 
 import os
+import re
 import time
 import logging
 from datetime import timedelta, datetime
 from pathlib import Path
 
 import pandas as pd
-from obspy import UTCDateTime, read_inventory
+from obspy import UTCDateTime, read_inventory, Stream
 
 import torch
 import seisbench.models as sbm
@@ -31,6 +32,12 @@ from .utils.summary import (
     drop_summary_txt_rows_in_range,
     station_summary_reset_for_overwrite,
 )
+
+
+def _safe_filename_component(s: str) -> str:
+    """Sanitize config/model strings for EQ annotation archive filenames."""
+    t = re.sub(r"[^\w.\-]+", "_", str(s)).strip("._-")
+    return t if t else "x"
 
 
 def _apply_nllpy_overrides(config, overrides, logger=None):
@@ -363,6 +370,101 @@ class WAV2HYP:
             "Cascading overwrite finished for range [%s, %s].", t1, t2
         )
 
+    def _archive_eqt_annotations(self, st_annotated, start_time, end_time, overwrite):
+        """
+        Write EQTransformer annotated streams to per-UTC-day MiniSEED files when
+        ``picker.eqt_annotation_dir`` is set.
+
+        Filenames: ``<dir>/yyyy-mm-dd-<config_name>-<model>-annotated.mseed``
+
+        If a target file already exists and ``overwrite`` is False, that file is
+        skipped (same policy as refusing to replace picker HDF5 without overwrite).
+        """
+        raw = self.config["picker"].get("eqt_annotation_dir")
+        if raw is None or raw is False:
+            return
+        s = str(raw).strip()
+        if not s:
+            return
+        out_root = Path(s).expanduser()
+        try:
+            out_root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            self.logger.warning(
+                "EQ annotation archive: cannot create directory %s (%s)",
+                out_root,
+                exc,
+            )
+            return
+
+        cfg = _safe_filename_component(self.config["locator"]["config_name"])
+        model = _safe_filename_component(self.config["picker"]["model"])
+        t1 = UTCDateTime(start_time)
+        t2 = UTCDateTime(end_time)
+        d0 = t1.datetime.date()
+        d1 = t2.datetime.date()
+
+        self.logger.info(
+            "EQ annotation archive: dir=%s overwrite=%s "
+            "files=<yyyy-mm-dd>-%s-%s-annotated.mseed UTC_days=%s..%s",
+            out_root,
+            overwrite,
+            cfg,
+            model,
+            d0,
+            d1,
+        )
+
+        cur = d0
+        while cur <= d1:
+            day_start = UTCDateTime(
+                year=cur.year, month=cur.month, day=cur.day, hour=0, minute=0, second=0
+            )
+            day_end = day_start + 86400.0
+            st_day = Stream()
+            for tr in st_annotated:
+                ta = max(tr.stats.starttime, day_start)
+                tb = min(tr.stats.endtime, day_end)
+                if ta >= tb:
+                    continue
+                tr2 = tr.copy()
+                tr2.trim(ta, tb)
+                if tr2.stats.npts > 0:
+                    st_day += tr2
+
+            fn = f"{cur.isoformat()}-{cfg}-{model}-annotated.mseed"
+            fp = out_root / fn
+
+            if len(st_day) == 0:
+                self.logger.debug(
+                    "EQ annotation archive: no trace samples for UTC day %s, skip %s",
+                    cur,
+                    fp.name,
+                )
+            elif fp.exists() and not overwrite:
+                self.logger.info(
+                    "EQ annotation archive: skip existing file %s (overwrite is false)",
+                    fp,
+                )
+            else:
+                try:
+                    st_day.write(str(fp), format="MSEED")
+                    npts = sum(int(tr.stats.npts) for tr in st_day)
+                    self.logger.info(
+                        "EQ annotation archive: wrote %s (%d traces, %d samples)",
+                        fp,
+                        len(st_day),
+                        npts,
+                    )
+                except Exception as exc:
+                    self.logger.warning(
+                        "EQ annotation archive: failed to write %s (%s)",
+                        fp,
+                        exc,
+                    )
+
+            cur = cur + timedelta(days=1)
+
     def run(self, start_time, end_time, tproc='1d', run_picker=False, run_associator=False, run_locator=False, overwrite=False):
         """
         Run the complete WAV2HYP processing pipeline.
@@ -554,6 +656,8 @@ class WAV2HYP:
         t = time.perf_counter()
         st_annotated = picker.annotate(stream)
         self.logger.info(f"EQTransformer execution time: {time.perf_counter() - t:.2f} seconds")
+
+        self._archive_eqt_annotations(st_annotated, start_time, end_time, overwrite)
         
         # Extract picks from the probability traces
         from seisbench.models.base import WaveformModel

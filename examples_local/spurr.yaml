@@ -1,0 +1,137 @@
+# WAV2HYP Configuration File
+# Waveform to Hypocenter Processing Pipeline
+
+# Target of Interest (Volcano/Study Area)
+target:
+  name: "Spurr"
+  latitude: 61.299
+  longitude: -152.251
+  elevation: 3374.0  # meters
+
+# Times of Interest
+# --t1 2024/10/14 --t2 2024/10/15
+  
+# Waveform Data Client (SDS filesystem - auto-detected by VClient)
+waveform_client:
+  datasource: "/VDAP-NAS/jwellik/DATA/AVO/Spurr_SDS/"
+
+# Station Inventory
+inventory:
+  file: "./examples_local/spurr_inventory.xml"
+
+# Output Directory Configuration
+# - All outputs are relative to base_dir
+output:
+  base_dir: "./results_local/spurr"
+  picker_dir: "1_picks"
+  associator_dir: "2_associations" 
+  locator_dir: "3_locations"
+  log_dir: "logs"
+  picker_summary: "1_spurr_picker_summary.txt"
+  associator_summary: "2_spurr_associator_summary.txt"
+  locator_summary: "3_spurr_locator_summary.txt"
+  
+# Phase Picker Settings (EQTransformer)
+picker:
+  model: "volpick"   # Pre-trained model optimized for volcanic seismicity
+  p_threshold: 0.20  # P-wave detection threshold
+  s_threshold: 0.20  # S-wave detection threshold
+  d_threshold: 0.20  # Detection threshold
+  use_cuda: true     # Use GPU acceleration if available
+  eqt_annotation_dir: "./results_local/spurr/eqt_annotations"  # MiniSEED archive of annotate() output; None to disable
+
+# Event Association Settings (PyOcto)
+associator:
+  # Search Area
+  radius_km: 250.0          # Search radius around target (km)
+  depth_limits: [-5, 50]    # Min/max depth (km, negative = above sea level)
+  
+  # Velocity Model (0D)
+  p_velocity: 4.5           # P-wave velocity (km/s)
+  s_velocity: 2.5           # S-wave velocity (km/s) 
+  tolerance: 2.0            # Pick association tolerance (seconds)
+  association_cutoff: 250   # Maximum association distance (km)
+  time_before: 300.0        # Time window to look back for picks (seconds)
+  
+  # Event Quality Criteria
+  min_p_picks: 5            # Minimum P picks required for event
+  min_s_picks: 1            # Minimum S picks required for event
+  min_p_and_s_picks: 1      # Minimum stations with both P and S picks
+  
+# Event Location Settings (NonLinLoc)
+locator:
+  # NonLinLoc working directory (must contain velocity models and grids)
+  nll_home: "./results_local/spurr/3_locations/nll_spurr"
+
+  # Configuration name for NLL control files
+  config_name: "spurr"
+  
+  # Station format for NLL (STA uses station codes only)
+  station_format: "STA"
+  
+  # Run vel2grid/grid2time (only needed once per velocity model)
+  run_vel2grid: true
+  run_grid2time: true
+
+  # Optional: custom velocity model for NonLinLoc (overrides nllpy volcano template).
+  # Each row: [depth_km, VpTop, VpGrad, VsTop, VsGrad, rhoTop, rhoGrad]
+  # velocity_model_layers:
+  #   - [0.0,  4.30, 0.0, 2.49, 0.0, 2.7, 0.0]
+  #   - [5.0,  5.33, 0.0, 3.08, 0.0, 2.7, 0.0]
+  #   - [10.0, 6.04, 0.0, 3.49, 0.0, 2.7, 0.0]
+
+  # Optional: pass-through overrides to nllpy NLLocConfig (grids, search, method, etc.)
+  # nllpy_overrides:
+  #   locgrid:
+  #     d_grid_x: 0.2
+  #     d_grid_y: 0.2
+  #     d_grid_z: 0.3
+  #   locmethod:
+  #     min_num_phases: 5
+  #     min_num_s_phases: 1
+  
+# File Format Settings
+file_formats:
+  # HDF5 compression settings
+  hdf5_compression:
+    complevel: 9            # Compression level (0-9, 9=max)
+    complib: "blosc"        # Compression library
+    
+  # PyASDF settings for QuakeML storage
+  pyasdf:
+    fallback_to_xml: true   # Create XML files if PyASDF unavailable
+    
+# Processing Control
+processing:
+  # Data validation
+  validate_inventory: true   # Check inventory file exists
+  validate_output_dirs: true # Create output directories if needed
+  
+# Logging Configuration
+logging:
+  level: "INFO"             # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  
+# Metadata Storage
+metadata:
+  # Additional attributes to store with results
+  processing_version: "2.0"
+  author: "WAV2HYP Pipeline"
+  institution: "Volcano Disaster Assistance Program"
+  
+  # Data provenance tracking
+  track_processing_time: true
+  track_data_ranges: true
+  track_parameters: true
+
+# Advanced Settings
+advanced:
+  # Memory management
+  max_memory_gb: 8.0        # Maximum memory usage hint
+  
+  # Error handling
+  continue_on_error: false  # Stop processing on first error
+  
+  # Temporary files
+  cleanup_temp_files: true  # Remove temporary files after processing
+  temp_dir: "/tmp"          # Directory for temporary files
