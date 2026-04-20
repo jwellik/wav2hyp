@@ -3,6 +3,7 @@
 from .sthelens_clipboards import (
     StHelensVizPaths,
     attach_pick_probabilities,
+    config_path_anchor,
     load_catalog_and_arrivals,
     load_config_from_path,
     make_catalog_volcano_figure,
@@ -16,6 +17,7 @@ from .sthelens_clipboards import (
 __all__ = [
     "StHelensVizPaths",
     "attach_pick_probabilities",
+    "config_path_anchor",
     "load_catalog_and_arrivals",
     "load_config_from_path",
     "make_catalog_volcano_figure",

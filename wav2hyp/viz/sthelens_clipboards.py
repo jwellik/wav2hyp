@@ -51,6 +51,22 @@ class StHelensVizPaths:
     nll_run_prefix: str
 
 
+def config_path_anchor(config_path: Path | str) -> Path:
+    """
+    Anchor directory for resolving relative paths in a WAV2HYP YAML.
+
+    Project configs often use paths relative to the **repository root** (e.g.
+    ``./results_local/...``, ``./examples_local/...``). We walk upward from the
+    config file until ``pyproject.toml`` is found and use that directory; if none is
+    found, the config file's parent directory is used.
+    """
+    cur = Path(config_path).resolve().parent
+    for d in [cur, *cur.parents]:
+        if (d / "pyproject.toml").is_file():
+            return d
+    return cur
+
+
 def sthelens_paths_from_wav2hyp_config(
     cfg: dict, *, config_path: Path, run_base_dir: Path
 ) -> StHelensVizPaths:
@@ -59,18 +75,21 @@ def sthelens_paths_from_wav2hyp_config(
 
     ``run_base_dir`` is the pipeline output root (``output.base_dir``), containing
     ``locations/nll.h5`` and ``picks/eqt-volpick.h5``.
+
+    Relative ``inventory.file`` and ``locator.nll_home`` entries are resolved with
+    :func:`config_path_anchor` (repository root), not the YAML file's directory.
     """
     config_path = config_path.resolve()
-    root = config_path.parent
+    anchor = config_path_anchor(config_path)
     inv = Path(cfg["inventory"]["file"])
-    inventory_path = inv.resolve() if inv.is_absolute() else (root / inv).resolve()
+    inventory_path = inv.resolve() if inv.is_absolute() else (anchor / inv).resolve()
     out = cfg["output"]
     nll_home = Path(cfg["locator"]["nll_home"])
-    nll_loc_root = nll_home.resolve() if nll_home.is_absolute() else (root / nll_home).resolve()
+    nll_loc_root = nll_home.resolve() if nll_home.is_absolute() else (anchor / nll_home).resolve()
     rb = run_base_dir.resolve()
     return StHelensVizPaths(
         config_path=config_path,
-        config_root=root,
+        config_root=anchor,
         run_base_dir=rb,
         inventory_path=inventory_path,
         nll_h5=(rb / out.get("locator_dir", "locations") / "nll.h5").resolve(),
