@@ -26,6 +26,7 @@ from obspy import Stream, UTCDateTime, read_inventory
 from obspy.clients.filesystem.sds import Client as SDSClient
 
 from wav2hyp.config_loader import config_path_anchor
+from wav2hyp.viz.plot_styles import NLL_CATALOG_COLOR, SCATTER_CLOUD_TEAL
 from wav2hyp.utils.io import NLLOutput
 
 from obspy.core.event import Catalog, Event, Origin, Magnitude
@@ -259,8 +260,10 @@ def make_catalog_volcano_figure(
         radial_extent_km=15.0,
         depth_extent=(-15.0, 5.0),
     )
+    # Use Map.add_terrain (explicit zoom/cache only) so VolcanoFigure cannot forward
+    # stray kwargs (e.g. style=) into add_arcgis_terrain on older vdapseisutils builds.
     try:
-        fig.add_terrain()
+        fig.map_obj.add_terrain()
     except Exception as e:
         print(f"Terrain tiles failed: {e}")
     try:
@@ -268,7 +271,14 @@ def make_catalog_volcano_figure(
     except Exception as e:
         print(f"Hillshade failed: {e}")
 
-    fig.plot_catalog(obspy_cat, s=25, c="red", alpha=0.85, edgecolors="k", linewidths=0.4)
+    fig.plot_catalog(
+        obspy_cat,
+        s=25,
+        c=NLL_CATALOG_COLOR,
+        alpha=0.85,
+        edgecolors="k",
+        linewidths=0.4,
+    )
     fig.plot_inventory(inventory, s=35, c="black", alpha=0.9, cross_section_s=12)
 
     win = (
@@ -691,26 +701,48 @@ def _build_event_map_xs_figure(
             lat_o, lon_o, rot = nllpy.parse_hyp_transform(hyp_path)
             s_lat, s_lon, s_depth = nllpy.scat_to_geographic(xyz, lat_o, lon_o, rot)
             map_obj.ax.scatter(
-                s_lon, s_lat, s=2.0, c="#1f77b4", alpha=0.12,
-                transform=ccrs.Geodetic(), zorder=1,
+                s_lon,
+                s_lat,
+                s=2.0,
+                c=SCATTER_CLOUD_TEAL,
+                alpha=0.12,
+                transform=ccrs.Geodetic(),
+                zorder=1,
             )
             for xs in (xs1, xs2):
                 xs.scatter(
-                    lat=s_lat, lon=s_lon, z=s_depth, z_dir="depth", z_unit="km",
-                    s=1.5, c="#1f77b4", alpha=0.08, zorder=1,
+                    lat=s_lat,
+                    lon=s_lon,
+                    z=s_depth,
+                    z_dir="depth",
+                    z_unit="km",
+                    s=1.5,
+                    c=SCATTER_CLOUD_TEAL,
+                    alpha=0.08,
+                    zorder=1,
                 )
         except Exception as e:
             print(f"    scatter cloud failed: {e}")
 
     ev_cat = _cat_df_to_obspy(cat_df.iloc[[event_idx]])
     map_obj.plot_catalog(
-        ev_cat, s=60, c="red", alpha=0.95,
-        edgecolors="black", linewidths=0.5, zorder=5,
+        ev_cat,
+        s=60,
+        c=NLL_CATALOG_COLOR,
+        alpha=0.95,
+        edgecolors="black",
+        linewidths=0.5,
+        zorder=5,
     )
     for xs in (xs1, xs2):
         xs.plot_catalog(
-            ev_cat, s=60, c="red", alpha=0.95,
-            edgecolors="black", linewidths=0.5, zorder=5,
+            ev_cat,
+            s=60,
+            c=NLL_CATALOG_COLOR,
+            alpha=0.95,
+            edgecolors="black",
+            linewidths=0.5,
+            zorder=5,
         )
     map_obj.plot_inventory(inventory, s=45, c="black", alpha=0.9, zorder=6)
     for xs in (xs1, xs2):
