@@ -1,9 +1,10 @@
 """Visualization helpers (maps, clipboards) built on vdapseisutils."""
 
+from wav2hyp.config_loader import config_path_anchor
+
 from .sthelens_clipboards import (
     StHelensVizPaths,
     attach_pick_probabilities,
-    config_path_anchor,
     load_catalog_and_arrivals,
     load_config_from_path,
     make_catalog_volcano_figure,

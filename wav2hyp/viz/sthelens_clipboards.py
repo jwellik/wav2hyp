@@ -25,6 +25,7 @@ import yaml
 from obspy import Stream, UTCDateTime, read_inventory
 from obspy.clients.filesystem.sds import Client as SDSClient
 
+from wav2hyp.config_loader import config_path_anchor
 from wav2hyp.utils.io import NLLOutput
 
 from obspy.core.event import Catalog, Event, Origin, Magnitude
@@ -49,22 +50,6 @@ class StHelensVizPaths:
     eqt_volpick_h5: Path
     nll_loc_root: Path
     nll_run_prefix: str
-
-
-def config_path_anchor(config_path: Path | str) -> Path:
-    """
-    Anchor directory for resolving relative paths in a WAV2HYP YAML.
-
-    Project configs often use paths relative to the **repository root** (e.g.
-    ``./results_local/...``, ``./examples_local/...``). We walk upward from the
-    config file until ``pyproject.toml`` is found and use that directory; if none is
-    found, the config file's parent directory is used.
-    """
-    cur = Path(config_path).resolve().parent
-    for d in [cur, *cur.parents]:
-        if (d / "pyproject.toml").is_file():
-            return d
-    return cur
 
 
 def sthelens_paths_from_wav2hyp_config(

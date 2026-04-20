@@ -8,6 +8,7 @@ from YAML files for the WAV2HYP processing pipeline.
 import yaml
 import os
 from pathlib import Path
+from typing import Union
 
 
 def load_config(config_path="config.yaml"):
@@ -251,6 +252,22 @@ def print_config_summary(config, logger=None):
         _out("Locator Velocity Model: nllpy volcano default")
 
     _out("=" * 60)
+
+
+def config_path_anchor(config_path: Union[str, Path]) -> Path:
+    """
+    Anchor directory for resolving relative paths in a WAV2HYP YAML.
+
+    Project configs often use paths relative to the **repository root** (e.g.
+    ``./results_local/...``, ``./examples_local/...``). Walk upward from the
+    config file until ``pyproject.toml`` is found; if none is found, use the
+    config file's parent directory.
+    """
+    cur = Path(config_path).resolve().parent
+    for d in [cur, *cur.parents]:
+        if (d / "pyproject.toml").is_file():
+            return d
+    return cur
 
 
 # Example usage and testing
