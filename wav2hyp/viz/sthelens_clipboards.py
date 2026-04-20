@@ -1,5 +1,5 @@
 """
-St. Helens–style figures: VolcanoFigure catalog overview, per-event Map + CrossSection,
+St. Helens–style figures: Map + cross-section catalog overview, per-event Map + CrossSection,
 waveform clipboards, and combined PNG stacks.
 
 Used by :mod:`wav2hyp.notebooks.catalog_explorer` and the optional analysis script
@@ -31,7 +31,6 @@ from wav2hyp.utils.io import NLLOutput
 
 from obspy.core.event import Catalog, Event, Origin, Magnitude
 
-from vdapseisutils import VolcanoFigure
 from vdapseisutils.core.maps.cross_section import CrossSection
 from vdapseisutils.core.maps.map import Map
 from vdapseisutils.core.swarmmpl.clipboard import ClipboardClass, t2axiscoords
@@ -248,60 +247,26 @@ def make_catalog_volcano_figure(
     map_t1: str | None,
     map_t2: str | None,
     out_png: Path | None = None,
-) -> Path | VolcanoFigure:
-    """Overview map + cross-sections via :class:`~vdapseisutils.VolcanoFigure`.
+) -> Path | plt.Figure:
+    """Overview map + cross-sections via :func:`_build_event_map_xs_figure` (catalog mode).
+
+    Same layout, terrain, hillshade, and extents as per-event maps (15 km, depth −15–5 km).
 
     If ``out_png`` is set, saves to disk, closes the figure, and returns the path.
-    Otherwise returns the figure for display (e.g. in Jupyter).
-
-    ``VolcanoFigure`` subclasses :class:`matplotlib.figure.Figure` but is not built
-    through :func:`matplotlib.pyplot.figure`, so it is not registered with pyplot.
-    In notebooks, show the return value with ``display(fig)`` (IPython); plain
-    :func:`matplotlib.pyplot.show` may not render it.
+    Otherwise returns a :class:`matplotlib.figure.Figure` created with
+    :func:`matplotlib.pyplot.figure` (use ``display(fig)`` in Jupyter if needed).
     """
-    origin = (float(cfg["target"]["latitude"]), float(cfg["target"]["longitude"]))
     inventory = read_inventory(str(inventory_path))
-
-    obspy_cat = _cat_df_to_obspy(cat_df)
-
-    fig = VolcanoFigure(
-        origin=origin,
-        radial_extent_km=MAP_RADIAL_EXTENT_KM,
-        depth_extent=MAP_DEPTH_EXTENT_KM,
+    fig, _ = _build_event_map_xs_figure(
+        cfg,
+        inventory,
+        cat_df,
+        event_idx=None,
+        n_events=len(cat_df),
+        paths=None,
+        map_t1=map_t1,
+        map_t2=map_t2,
     )
-    # Use Map.add_terrain (explicit zoom/cache only) so VolcanoFigure cannot forward
-    # stray kwargs (e.g. style=) into add_arcgis_terrain on older vdapseisutils builds.
-    try:
-        fig.map_obj.add_terrain()
-    except Exception as e:
-        print(f"Terrain tiles failed: {e}")
-    try:
-        fig.add_hillshade(alpha=0.6)
-    except Exception as e:
-        print(f"Hillshade failed: {e}")
-
-    fig.plot_catalog(
-        obspy_cat,
-        s=25,
-        c=NLL_CATALOG_COLOR,
-        alpha=0.85,
-        edgecolors="k",
-        linewidths=0.4,
-    )
-    fig.plot_inventory(inventory, s=35, c="black", alpha=0.9, cross_section_s=12)
-
-    win = (
-        f"{map_t1} to {map_t2}"
-        if map_t1 is not None and map_t2 is not None
-        else "full catalog"
-    )
-    try:
-        fig.map_obj.ax.set_title(
-            f"{cfg['target']['name']} located earthquakes | {win} | N={len(cat_df)}",
-            fontsize=10,
-        )
-    except Exception:
-        pass
 
     if out_png is not None:
         out_png = Path(out_png)
@@ -631,20 +596,19 @@ def _build_event_map_xs_figure(
     cfg: dict,
     inventory,
     cat_df: pd.DataFrame,
-    event_idx: int,
+    event_idx: int | None,
     n_events: int,
-    paths: StHelensVizPaths,
+    paths: StHelensVizPaths | None,
+    *,
+    map_t1: str | None = None,
+    map_t2: str | None = None,
 ) -> tuple[plt.Figure, int]:
-    """Map (left) + two cross-sections (right), VolcanoFigure-like but no time series."""
-    row = cat_df.iloc[event_idx]
-    otime = UTCDateTime(pd.Timestamp(row["origin_time"]).to_pydatetime())
-
-    hyp_path = _nll_file_for_origin_time(
-        otime, "hyp", nll_loc_root=paths.nll_loc_root, nll_run_prefix=paths.nll_run_prefix
-    )
-    scat_path = _nll_file_for_origin_time(
-        otime, "scat", nll_loc_root=paths.nll_loc_root, nll_run_prefix=paths.nll_run_prefix
-    )
+    """Map (left) + two cross-sections (right); catalog mode when ``event_idx`` is ``None``."""
+    if event_idx is None:
+        if paths is not None:
+            raise ValueError("paths must be None when event_idx is None (catalog mode)")
+    elif paths is None:
+        raise ValueError("paths is required when event_idx is set")
 
     origin = (
         float(cfg["target"]["latitude"]),
@@ -707,48 +671,85 @@ def _build_event_map_xs_figure(
     map_obj.add_scalebar()
 
     n_scat = 0
-    if scat_path is not None and hyp_path is not None:
-        try:
-            xyz = nllpy.read_scat(scat_path)
-            n_scat = int(xyz.shape[0])
-            lat_o, lon_o, rot = nllpy.parse_hyp_transform(hyp_path)
-            s_lat, s_lon, s_depth = nllpy.scat_to_geographic(xyz, lat_o, lon_o, rot)
-            map_obj.ax.scatter(
-                s_lon,
-                s_lat,
-                s=2.0,
-                c=SCATTER_CLOUD_TEAL,
-                alpha=0.12,
-                transform=ccrs.Geodetic(),
-                zorder=1,
+    if event_idx is None:
+        obspy_cat = _cat_df_to_obspy(cat_df)
+        map_obj.plot_catalog(
+            obspy_cat,
+            s=25,
+            c=NLL_CATALOG_COLOR,
+            alpha=0.85,
+            edgecolors="k",
+            linewidths=0.4,
+        )
+        for xs in (xs1, xs2):
+            xs.plot_catalog(
+                obspy_cat,
+                s=25,
+                c=NLL_CATALOG_COLOR,
+                alpha=0.85,
+                edgecolors="k",
+                linewidths=0.4,
             )
-            for xs in (xs1, xs2):
-                xs.scatter(
-                    lat=s_lat,
-                    lon=s_lon,
-                    z=s_depth,
-                    z_dir="depth",
-                    z_unit="km",
-                    s=1.5,
+        map_obj.plot_inventory(inventory, s=35, c="black", alpha=0.9)
+        for xs in (xs1, xs2):
+            xs.plot_inventory(inventory, s=12, c="black", alpha=0.9)
+
+        win = (
+            f"{map_t1} to {map_t2}"
+            if map_t1 is not None and map_t2 is not None
+            else "full catalog"
+        )
+        try:
+            map_obj.ax.set_title(
+                f"{cfg['target']['name']} located earthquakes | {win} | N={len(cat_df)}",
+                fontsize=10,
+            )
+        except Exception:
+            pass
+    else:
+        assert paths is not None
+        row = cat_df.iloc[event_idx]
+        otime = UTCDateTime(pd.Timestamp(row["origin_time"]).to_pydatetime())
+
+        hyp_path = _nll_file_for_origin_time(
+            otime, "hyp", nll_loc_root=paths.nll_loc_root, nll_run_prefix=paths.nll_run_prefix
+        )
+        scat_path = _nll_file_for_origin_time(
+            otime, "scat", nll_loc_root=paths.nll_loc_root, nll_run_prefix=paths.nll_run_prefix
+        )
+
+        if scat_path is not None and hyp_path is not None:
+            try:
+                xyz = nllpy.read_scat(scat_path)
+                n_scat = int(xyz.shape[0])
+                lat_o, lon_o, rot = nllpy.parse_hyp_transform(hyp_path)
+                s_lat, s_lon, s_depth = nllpy.scat_to_geographic(xyz, lat_o, lon_o, rot)
+                map_obj.ax.scatter(
+                    s_lon,
+                    s_lat,
+                    s=2.0,
                     c=SCATTER_CLOUD_TEAL,
-                    alpha=0.08,
+                    alpha=0.12,
+                    transform=ccrs.Geodetic(),
                     zorder=1,
                 )
-        except Exception as e:
-            print(f"    scatter cloud failed: {e}")
+                for xs in (xs1, xs2):
+                    xs.scatter(
+                        lat=s_lat,
+                        lon=s_lon,
+                        z=s_depth,
+                        z_dir="depth",
+                        z_unit="km",
+                        s=1.5,
+                        c=SCATTER_CLOUD_TEAL,
+                        alpha=0.08,
+                        zorder=1,
+                    )
+            except Exception as e:
+                print(f"    scatter cloud failed: {e}")
 
-    ev_cat = _cat_df_to_obspy(cat_df.iloc[[event_idx]])
-    map_obj.plot_catalog(
-        ev_cat,
-        s=60,
-        c=NLL_CATALOG_COLOR,
-        alpha=0.95,
-        edgecolors="black",
-        linewidths=0.5,
-        zorder=5,
-    )
-    for xs in (xs1, xs2):
-        xs.plot_catalog(
+        ev_cat = _cat_df_to_obspy(cat_df.iloc[[event_idx]])
+        map_obj.plot_catalog(
             ev_cat,
             s=60,
             c=NLL_CATALOG_COLOR,
@@ -757,22 +758,32 @@ def _build_event_map_xs_figure(
             linewidths=0.5,
             zorder=5,
         )
-    map_obj.plot_inventory(inventory, s=45, c="black", alpha=0.9, zorder=6)
-    for xs in (xs1, xs2):
-        xs.plot_inventory(inventory, s=14, c="black", alpha=0.9, zorder=6)
+        for xs in (xs1, xs2):
+            xs.plot_catalog(
+                ev_cat,
+                s=60,
+                c=NLL_CATALOG_COLOR,
+                alpha=0.95,
+                edgecolors="black",
+                linewidths=0.5,
+                zorder=5,
+            )
+        map_obj.plot_inventory(inventory, s=45, c="black", alpha=0.9, zorder=6)
+        for xs in (xs1, xs2):
+            xs.plot_inventory(inventory, s=14, c="black", alpha=0.9, zorder=6)
 
-    try:
-        map_obj.ax.set_title(
-            f"Event {event_idx+1:02d}/{n_events} | {otime.datetime.strftime('%Y-%m-%d %H:%M:%S')}Z | "
-            f"epi lat={row['latitude']:.4f} lon={row['longitude']:.4f} "
-            f"depth={row['depth_km']:.2f} km | "
-            f"rms={row['residual_rms']:.3f}s | N_scat={n_scat} | "
-            f"map {EVENT_MAP_RADIUS_KM:.0f} km on {cfg['target']['name']} | "
-            f"A–A′ E–W, B–B′ N–S",
-            fontsize=9,
-        )
-    except Exception:
-        pass
+        try:
+            map_obj.ax.set_title(
+                f"Event {event_idx+1:02d}/{n_events} | {otime.datetime.strftime('%Y-%m-%d %H:%M:%S')}Z | "
+                f"epi lat={row['latitude']:.4f} lon={row['longitude']:.4f} "
+                f"depth={row['depth_km']:.2f} km | "
+                f"rms={row['residual_rms']:.3f}s | N_scat={n_scat} | "
+                f"map {EVENT_MAP_RADIUS_KM:.0f} km on {cfg['target']['name']} | "
+                f"A–A′ E–W, B–B′ N–S",
+                fontsize=9,
+            )
+        except Exception:
+            pass
 
     return fig, n_scat
 
