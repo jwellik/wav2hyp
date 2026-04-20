@@ -117,9 +117,13 @@ WAVEFORM_PAD_BEFORE_S = 5.0
 WAVEFORM_PAD_AFTER_S = 25.0
 BANDPASS = (1.0, 15.0)
 
-# Per-event map: fixed on volcano target (not event epicenter)
-EVENT_MAP_RADIUS_KM = 20.0
-EVENT_MAP_DEPTH_EXTENT = (-10.0, 5.0)
+# Volcano-centered map window: same radial extent and depth range for catalog (Day)
+# overview and per-event Map + cross-sections so terrain zoom and axes match.
+MAP_RADIAL_EXTENT_KM = 15.0
+MAP_DEPTH_EXTENT_KM = (-15.0, 5.0)
+# Backward-compatible aliases
+EVENT_MAP_RADIUS_KM = MAP_RADIAL_EXTENT_KM
+EVENT_MAP_DEPTH_EXTENT = MAP_DEPTH_EXTENT_KM
 
 # Clipboard layout (P/S α legend is a separate figure; only caption + suptitle here)
 CLIPBOARD_SUBPLOTS_TOP = 0.88
@@ -262,8 +266,8 @@ def make_catalog_volcano_figure(
 
     fig = VolcanoFigure(
         origin=origin,
-        radial_extent_km=15.0,
-        depth_extent=(-15.0, 5.0),
+        radial_extent_km=MAP_RADIAL_EXTENT_KM,
+        depth_extent=MAP_DEPTH_EXTENT_KM,
     )
     # Use Map.add_terrain (explicit zoom/cache only) so VolcanoFigure cannot forward
     # stray kwargs (e.g. style=) into add_arcgis_terrain on older vdapseisutils builds.
@@ -681,7 +685,11 @@ def _build_event_map_xs_figure(
         depth_extent=EVENT_MAP_DEPTH_EXTENT,
         label="B",
     )
-    # Hillshade first so section lines and data draw above terrain
+    # Match catalog / Day view: ArcGIS terrain tiles, then hillshade on top
+    try:
+        map_obj.add_terrain()
+    except Exception as e:
+        print(f"    terrain tiles failed: {e}")
     try:
         map_obj.add_hillshade(alpha=0.6)
     except Exception as e:
