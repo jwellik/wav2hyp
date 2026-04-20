@@ -249,6 +249,11 @@ def make_catalog_volcano_figure(
 
     If ``out_png`` is set, saves to disk, closes the figure, and returns the path.
     Otherwise returns the figure for display (e.g. in Jupyter).
+
+    ``VolcanoFigure`` subclasses :class:`matplotlib.figure.Figure` but is not built
+    through :func:`matplotlib.pyplot.figure`, so it is not registered with pyplot.
+    In notebooks, show the return value with ``display(fig)`` (IPython); plain
+    :func:`matplotlib.pyplot.show` may not render it.
     """
     origin = (float(cfg["target"]["latitude"]), float(cfg["target"]["longitude"]))
     inventory = read_inventory(str(inventory_path))
