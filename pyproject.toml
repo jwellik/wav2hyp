@@ -53,7 +53,8 @@ dependencies = [
 #    "nllpy>=0.1.0",
 #    "vdapseisutils>=1.0.0",
     "tqdm>=4.62.0",
-    "click>=8.0.0"
+    "click>=8.0.0",
+    "usgs-libcomcat>=2.0.0"
 ]
 
 [project.optional-dependencies]
