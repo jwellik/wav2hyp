@@ -688,27 +688,50 @@ def make_catalog_comparer_volcano_figure(
         print(f"hillshade failed: {e}")
     inv = read_inventory(str(inventory_path))
     fig.plot_inventory(inv, s=35, c="black", alpha=0.9, cross_section_s=12)
-    for obspy_cat, label, color, z in (
-        (_cat_df_to_obspy_catalog_local(df_canonical_only), "Canonical only", META_CANONICAL_ONLY_COLOR, 2),
-        (_cat_df_to_obspy_catalog_local(df_test_only), "Test only", META_TEST_ONLY_COLOR, 3),
-        (_cat_df_to_obspy_catalog_local(df_both), "Both (at canonical)", META_BOTH_COLOR, 4),
+    n_c = int(len(df_canonical_only))
+    n_t = int(len(df_test_only))
+    n_b = int(len(df_both))
+    for obspy_cat, label, n_ev, color, z in (
+        (
+            _cat_df_to_obspy_catalog_local(df_canonical_only),
+            "Canonical only",
+            n_c,
+            META_CANONICAL_ONLY_COLOR,
+            2,
+        ),
+        (
+            _cat_df_to_obspy_catalog_local(df_test_only),
+            "Test only",
+            n_t,
+            META_TEST_ONLY_COLOR,
+            3,
+        ),
+        (
+            _cat_df_to_obspy_catalog_local(df_both),
+            "Both (at canonical)",
+            n_b,
+            META_BOTH_COLOR,
+            4,
+        ),
     ):
         if len(obspy_cat) == 0:
             continue
+        leg = f"{label} (n={n_ev})"
         fig.plot_catalog(
             obspy_cat,
-            s=32,
+            s=48,
             c=color,
-            alpha=0.88,
-            edgecolors="k",
-            linewidths=0.4,
-            label=label,
+            alpha=0.5,
+            edgecolors="0.15",
+            linewidths=0.35,
+            label=leg,
             zorder=z,
         )
     win = f"{map_t1} to {map_t2}" if map_t1 is not None and map_t2 is not None else "full window"
     try:
         fig.map_obj.ax.set_title(
-            f"{cfg['target']['name']} | comparer overlay | {win}",
+            f"{cfg['target']['name']} | comparer overlay | {win}\n"
+            f"canonical only n={n_c} · test only n={n_t} · both n={n_b}",
             fontsize=10,
         )
     except Exception:
