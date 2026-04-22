@@ -323,6 +323,11 @@ def build_shared_arrivals(
         sub_keys=["event_id_canonical", "station_key", "phase_hint"],
     )
 
+    # ``event_id`` exists on both sides; merge suffixes would create ``event_id_canonical`` /
+    # ``event_id_test`` and clash with the real pair-id columns.
+    ac2 = ac2.drop(columns=["event_id"], errors="ignore")
+    at2 = at2.drop(columns=["event_id"], errors="ignore")
+
     merged = ac2.merge(
         at2,
         on=["event_id_canonical", "event_id_test", "station_key", "phase_hint"],
