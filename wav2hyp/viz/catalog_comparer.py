@@ -404,8 +404,16 @@ def plot_timebin_stairs(
         ax.text(0.5, 0.5, "no events", ha="center", va="center", transform=ax.transAxes)
         return fig
 
-    tmin = min(c["origin_time"].min(), t["origin_time"].min(), default=pd.Timestamp.utcnow())
-    tmax = max(c["origin_time"].max(), t["origin_time"].max(), default=pd.Timestamp.utcnow())
+    # ``min(..., default=)`` is only valid for a single iterable, not two timestamps.
+    oc = c["origin_time"]
+    ot = t["origin_time"]
+    if c.empty:
+        tmin, tmax = ot.min(), ot.max()
+    elif t.empty:
+        tmin, tmax = oc.min(), oc.max()
+    else:
+        tmin = min(oc.min(), ot.min())
+        tmax = max(oc.max(), ot.max())
     idx = pd.date_range(
         tmin.floor(freq),
         tmax.ceil(freq),
