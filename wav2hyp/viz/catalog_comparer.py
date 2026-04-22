@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -22,12 +23,14 @@ from vdapseisutils import VolcanoFigure
 
 from wav2hyp.utils.io import NLLOutput
 from wav2hyp.viz.plot_styles import (
+    ARRIVAL_DELTA_T_XLIM,
+    COLORS_80S,
+    DELTA_DEPTH_CMAP_80S,
     META_BOTH_COLOR,
     META_CANONICAL_ONLY_COLOR,
     META_TEST_ONLY_COLOR,
-    P_PHASE_COMPARER_COLOR,
-    S_PHASE_COMPARER_COLOR,
-    DELTA_DEPTH_CMAP,
+    P_PHASE_80S,
+    S_PHASE_80S,
     NLL_CATALOG_COLOR,
     apply_mpl_axes_style,
 )
@@ -67,6 +70,36 @@ def load_locator_tables(
         arr_df["arrival_time"] = pd.to_datetime(arr_df["arrival_time"], utc=True, errors="coerce")
         arr_df = arr_df.sort_values("arrival_time").reset_index(drop=True)
     return cat_df, arr_df
+
+
+def apply_vdapseis_timeseries_axis_style(ax, *, grid: bool = False) -> None:
+    """
+    Match :class:`vdapseisutils.core.maps.time_series.TimeSeries` tick, spine, and
+    label styling. Call :func:`obspy.imaging.util._set_xaxis_obspy_dates` on the
+    same axes after plotting time-based data.
+    """
+    try:
+        from vdapseisutils.core.maps.defaults import ensure_maps_mpl_style
+        from vdapseisutils.core.maps.defaults import TICK_DEFAULTS, AXES_DEFAULTS
+    except ImportError:
+        ax.set_facecolor("white")
+        ax.grid(grid)
+        return
+    ensure_maps_mpl_style()
+    ax.set_facecolor("white")
+    ax.grid(grid)
+    for s in ax.spines.values():
+        s.set_linewidth(AXES_DEFAULTS.get("spine_linewidth", 1.5))
+    ax.tick_params(
+        axis="both",
+        labelcolor=TICK_DEFAULTS["labelcolor"],
+        labelsize=TICK_DEFAULTS["labelsize"],
+        color=TICK_DEFAULTS["tick_color"],
+        length=TICK_DEFAULTS["tick_size"],
+        width=TICK_DEFAULTS["tick_width"],
+        direction=TICK_DEFAULTS["tick_direction"],
+        pad=TICK_DEFAULTS["tick_pad"],
+    )
 
 
 def save_figure(
@@ -356,6 +389,40 @@ def build_shared_arrivals(
     return merged.reset_index(drop=True)
 
 
+def enrich_shared_arrivals_with_eqt_peak_value(
+    shared: pd.DataFrame,
+    *,
+    eqt_volpick_h5: Path | None,
+    t1: str | None,
+    t2: str | None,
+) -> pd.DataFrame:
+    """
+    Add ``peak_value_canonical`` from ``eqt-volpick.h5`` picks (nearest
+    ``peak_time`` to canonical ``arrival_time``, same station + P/S family) via
+    :func:`wav2hyp.viz.sthelens_clipboards.attach_pick_probabilities`.
+    """
+    out = shared.copy()
+    if not eqt_volpick_h5 or not Path(eqt_volpick_h5).is_file():
+        return out
+    need = ("station_id_canonical", "phase", "arrival_time_canonical")
+    if not all(c in out.columns for c in need):
+        return out
+    mini = out[list(need)].copy().rename(
+        columns={"station_id_canonical": "station_id", "arrival_time_canonical": "arrival_time"}
+    )
+    from wav2hyp.viz.sthelens_clipboards import attach_pick_probabilities
+
+    tagged = attach_pick_probabilities(
+        pd.DataFrame(),
+        mini,
+        eqt_volpick_h5=Path(eqt_volpick_h5),
+        t1=t1,
+        t2=t2,
+    )
+    out["peak_value_canonical"] = pd.to_numeric(tagged["prob"], errors="coerce")
+    return out
+
+
 def attach_y_metric_for_plots(
     shared: pd.DataFrame,
 ) -> tuple[pd.DataFrame, str, str]:
@@ -400,7 +467,7 @@ def plot_timebin_stairs(
     t = t.dropna(subset=["origin_time"])
     if c.empty and t.empty:
         fig, ax = plt.subplots(figsize=(9, 4))
-        apply_mpl_axes_style(ax)
+        apply_vdapseis_timeseries_axis_style(ax, grid=False)
         ax.text(0.5, 0.5, "no events", ha="center", va="center", transform=ax.transAxes)
         return fig
 
@@ -436,7 +503,7 @@ def plot_timebin_stairs(
     edges = idx
 
     fig, ax = plt.subplots(figsize=(10, 4))
-    apply_mpl_axes_style(ax)
+    apply_vdapseis_timeseries_axis_style(ax, grid=False)
     ax.stairs(
         sc.to_numpy(),
         edges,
@@ -452,10 +519,40 @@ def plot_timebin_stairs(
         linewidth=1.4,
         linestyle="--",
     )
-    ax.set_xlabel("Time")
-    ax.set_ylabel(f"Events per {freq}")
-    ax.set_title("Event rate (time bins)")
-    ax.legend(loc="upper right")
+    try:
+        from obspy.imaging.util import _set_xaxis_obspy_dates
+        from vdapseisutils.core.maps.defaults import TICK_DEFAULTS, TITLE_DEFAULTS
+    except ImportError:
+        TICK_DEFAULTS = {"axes_labelcolor": "grey", "axes_labelsize": "medium", "labelcolor": "grey"}
+        TITLE_DEFAULTS = {"fontsize": "medium", "color": "k", "fontweight": "normal"}
+        def _set_xaxis_obspy_dates(a):
+            return None
+
+    _set_xaxis_obspy_dates(ax)
+    ax.set_xlabel(
+        "Time",
+        color=TICK_DEFAULTS["axes_labelcolor"],
+        fontsize=TICK_DEFAULTS["axes_labelsize"],
+    )
+    ax.set_ylabel(
+        f"Events per {freq}",
+        color=TICK_DEFAULTS["axes_labelcolor"],
+        fontsize=TICK_DEFAULTS["axes_labelsize"],
+    )
+    ax.set_title(
+        "Event rate (time bins)",
+        fontsize=TITLE_DEFAULTS.get("fontsize", "medium"),
+        color=TITLE_DEFAULTS.get("color", "k"),
+        fontweight=TITLE_DEFAULTS.get("fontweight", "normal"),
+    )
+    ax.set_ylim(bottom=0.0)
+    leg = ax.legend(
+        loc="upper right",
+        frameon=True,
+    )
+    if leg is not None:
+        for t in leg.get_texts():
+            t.set_color(TICK_DEFAULTS.get("labelcolor", "grey"))
     try:
         fig.autofmt_xdate()
     except Exception:
@@ -467,6 +564,7 @@ def plot_polar_origin_offset(
     matched_with_depth: pd.DataFrame,
     *,
     title: str | None = None,
+    delta_depth_vmax_km: float | None = None,
 ) -> plt.Figure:
     """
     ``matched_with_depth`` must include
@@ -511,18 +609,36 @@ def plot_polar_origin_offset(
     ax.set_theta_direction(-1)
     th = np.deg2rad(az_deg)
     c = np.asarray(df["delta_depth_km"], dtype="float64")
+    c_abs = float(np.nanmax(np.abs(c[np.isfinite(c)]))) if np.isfinite(c).any() else 1.0
+    vlim = (
+        float(delta_depth_vmax_km)
+        if delta_depth_vmax_km is not None
+        else min(100.0, max(0.5, c_abs))
+    )
+    from matplotlib.colors import Normalize
+
     sc = ax.scatter(
         th,
         r_km,
         c=c,
-        cmap=DELTA_DEPTH_CMAP,
+        cmap=DELTA_DEPTH_CMAP_80S,
+        norm=Normalize(vmin=-vlim, vmax=vlim),
         s=20,
-        alpha=0.85,
-        edgecolors="k",
+        alpha=0.88,
+        edgecolors="0.2",
         linewidths=0.2,
     )
-    cbar = fig.colorbar(sc, ax=ax, pad=0.1, orientation="vertical")
-    cbar.set_label("Δ depth (km)")
+    cbar = fig.colorbar(
+        sc,
+        ax=ax,
+        orientation="vertical",
+        pad=0.02,
+        fraction=0.035,
+        shrink=0.75,
+        aspect=28,
+    )
+    cbar.set_label("Δ depth (km)", rotation=90, labelpad=10, fontsize="small", color="grey")
+    cbar.ax.tick_params(labelsize="small", colors="grey")
     n_ok = int(np.sum(np.isfinite(r_km)))
     ax.set_title(
         title
@@ -531,6 +647,15 @@ def plot_polar_origin_offset(
     rk = r_km[np.isfinite(r_km)]
     rmax = float(np.nanpercentile(rk, 99)) * 1.1 if rk.size else 1.0
     ax.set_ylim(0.0, max(1.0, rmax))
+    # Radial tick labels: show distance in km on every grid line
+    r_ticks = np.asarray(ax.get_yticks(), dtype=float)
+    r_ticks = r_ticks[(r_ticks > 0) & (r_ticks <= ax.get_ylim()[1])]
+    if r_ticks.size:
+        ax.set_rgrids(
+            r_ticks,
+            labels=[f"{x:g} km" for x in r_ticks],
+            angle=22.5,
+        )
     return fig
 
 
@@ -600,10 +725,9 @@ def make_catalog_comparer_volcano_figure(
     return fig
 
 
-def _station_color_map(stations: list[str], cmap: str) -> dict[str, tuple]:
-    n = max(1, len(stations))
-    cm = plt.get_cmap(cmap)
-    return {s: cm(i / n) for i, s in enumerate(stations)}
+def _station_color_map_80s(stations: list[str]) -> dict[str, tuple]:
+    ncols = len(COLORS_80S)
+    return {s: mcolors.to_rgba(COLORS_80S[i % ncols]) for i, s in enumerate(stations)}
 
 
 def plot_arrival_scatter_p_s_panels(
@@ -619,11 +743,18 @@ def plot_arrival_scatter_p_s_panels(
     if "station_key" not in work.columns and "station_id_canonical" in work.columns:
         work["station_key"] = work["station_id_canonical"].map(_norm_station_id)
     st_list = sorted(work["station_key"].dropna().astype(str).unique().tolist())
-    cmap = _station_color_map(st_list, "tab20")
+    cmap = _station_color_map_80s(st_list)
+    try:
+        from vdapseisutils.core.maps.defaults import TICK_DEFAULTS
+    except ImportError:
+        TICK_DEFAULTS = {"axes_labelcolor": "grey", "axes_labelsize": "small"}
     fig, (axp, axs) = plt.subplots(1, 2, figsize=(12, 4.5), sharey=True)
-    apply_mpl_axes_style(axp)
-    apply_mpl_axes_style(axs)
-    y_axis_label = y_lab
+    for a in (axp, axs):
+        a.set_facecolor("white")
+        a.grid(False)
+        apply_vdapseis_timeseries_axis_style(a, grid=False)
+        a.set_xlim(ARRIVAL_DELTA_T_XLIM)
+    y_axis_label = "wav2hyp (EQT peak_value)" if y_name == "peak_value" else y_lab
     for ph, ax, wave_name in (("P", axp, "P-waves"), ("S", axs, "S-waves")):
         sub = work[work["phase_hint"] == ph]
         for sta in st_list:
@@ -635,18 +766,28 @@ def plot_arrival_scatter_p_s_panels(
                 s2["arrival_time_delta"],
                 s2["y_plot"],
                 s=12,
-                alpha=0.7,
+                alpha=0.78,
                 c=[color] * len(s2),
                 edgecolors="none",
                 label=sta,
             )
-        ax.axvline(0.0, color="0.25", linewidth=0.9, zorder=0)
-        ax.set_xlabel(r"$\Delta t$ (seconds)")
-        ax.set_ylabel(y_axis_label if ph == "P" else "")
+        ax.axvline(0.0, color="0.35", linewidth=1.0, zorder=0)
+        ax.set_xlabel(
+            r"$\Delta t$ (seconds)",
+            color=TICK_DEFAULTS["axes_labelcolor"],
+            fontsize=TICK_DEFAULTS["axes_labelsize"],
+        )
+        if ph == "P":
+            ax.set_ylabel(
+                y_axis_label,
+                color=TICK_DEFAULTS["axes_labelcolor"],
+                fontsize=TICK_DEFAULTS["axes_labelsize"],
+            )
         ptitle = "EQT peak_value" if y_name == "peak_value" else y_lab
         ax.set_title(
             f"Arrival time delta v {ptitle} ({wave_name})",
             fontsize=10,
+            color=TICK_DEFAULTS.get("axes_labelcolor", "k"),
         )
     h, lab = axp.get_legend_handles_labels()
     n = len(lab) if lab else 0
@@ -662,7 +803,9 @@ def plot_arrival_scatter_p_s_panels(
             frameon=True,
         )
     fig.suptitle(
-        f"Arrival time delta v {y_lab} (P-waves | S-waves), one color per station",
+        "Arrival time delta v EQT peak_value (P-waves | S-waves), 80s palette by station"
+        if y_name == "peak_value"
+        else f"Arrival time delta v {y_lab} (P-waves | S-waves)",
         fontsize=11,
         y=1.02,
     )
@@ -674,7 +817,7 @@ def plot_arrival_scatter_p_s_panels(
 def plot_arrival_boxplot_by_station(
     shared: pd.DataFrame,
 ) -> plt.Figure:
-    """Horizontal boxplots: y = station, x = ``arrival_time_delta``; P red, S blue."""
+    """Horizontal boxplots: y = station, x = ``arrival_time_delta``; P/S in 80s palette."""
     import matplotlib.patches as mpatches2
 
     w = shared.copy()
@@ -685,10 +828,13 @@ def plot_arrival_boxplot_by_station(
     n_sta = max(1, len(st_order))
     row_h = 0.4
     fig, ax = plt.subplots(figsize=(7.0, 0.55 * n_sta + 1.2))
-    apply_mpl_axes_style(ax)
+    ax.set_facecolor("white")
+    ax.grid(False)
+    apply_vdapseis_timeseries_axis_style(ax, grid=False)
+    for side in ("left", "right", "top"):
+        ax.spines[side].set_visible(False)
     y_center = 0.0
     y_tick_pos: list[float] = []
-    x_max = 1.0e-6
     n_ann: list[tuple[float, str, int, str]] = []
     for sta in st_order:
         psub = w[(w["station_key"] == sta) & (w["phase_hint"] == "P")]["arrival_time_delta"]
@@ -697,7 +843,7 @@ def plot_arrival_boxplot_by_station(
         ns_ = int(len(ssub))
         ppos = y_center - row_h
         spos = y_center + row_h
-        for dat, pos, col, n in ((psub, ppos, P_PHASE_COMPARER_COLOR, np_), (ssub, spos, S_PHASE_COMPARER_COLOR, ns_)):
+        for dat, pos, col, n in ((psub, ppos, P_PHASE_80S, np_), (ssub, spos, S_PHASE_80S, ns_)):
             if n > 0:
                 b = ax.boxplot(
                     [dat.to_numpy(dtype="float64")],
@@ -710,17 +856,32 @@ def plot_arrival_boxplot_by_station(
                 for box in b["boxes"]:
                     box.set_facecolor(col)
                     box.set_alpha(0.45)
-                x_max = max(x_max, float(np.nanmax(np.abs(dat.to_numpy()))))
             n_ann.append((pos, col, n, f"N = {n}"))
         y_tick_pos.append(y_center)
         y_center += 1.0
 
     ax.set_yticks(y_tick_pos, labels=st_order, fontsize=8)
-    ax.set_xlabel(r"$\Delta t$ (seconds)")
-    ax.set_ylabel("Station")
-    ax.set_title("Distribution of pick time differences by station", fontsize=10)
-    lim = x_max * 1.1 if x_max > 0 else 1.0
-    ax.set_xlim(-lim, lim)
+    try:
+        from vdapseisutils.core.maps.defaults import TICK_DEFAULTS
+    except ImportError:
+        TICK_DEFAULTS = {"axes_labelcolor": "grey", "axes_labelsize": "small"}
+    ax.set_xlabel(
+        r"$\Delta t$ (seconds)",
+        color=TICK_DEFAULTS["axes_labelcolor"],
+        fontsize=TICK_DEFAULTS["axes_labelsize"],
+    )
+    ax.set_ylabel(
+        "Station",
+        color=TICK_DEFAULTS["axes_labelcolor"],
+        fontsize=TICK_DEFAULTS["axes_labelsize"],
+    )
+    ax.set_title(
+        "Distribution of pick time differences by station",
+        fontsize=10,
+        color=TICK_DEFAULTS.get("axes_labelcolor", "k"),
+    )
+    ax.set_xlim(ARRIVAL_DELTA_T_XLIM)
+    lim = max(10.0, float(ARRIVAL_DELTA_T_XLIM[1]))
     for pos, col, _n, txt in n_ann:
         ax.text(
             lim * 0.99,
@@ -734,8 +895,8 @@ def plot_arrival_boxplot_by_station(
     ax.axvline(0.0, color="k", linewidth=1.0, zorder=0)
     ax.legend(
         [
-            mpatches2.Patch(facecolor=P_PHASE_COMPARER_COLOR, edgecolor="0.2", label="P"),
-            mpatches2.Patch(facecolor=S_PHASE_COMPARER_COLOR, edgecolor="0.2", label="S"),
+            mpatches2.Patch(facecolor=P_PHASE_80S, edgecolor="0.2", label="P"),
+            mpatches2.Patch(facecolor=S_PHASE_80S, edgecolor="0.2", label="S"),
         ],
         ["P", "S"],
         loc="lower right",
