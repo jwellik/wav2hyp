@@ -11,6 +11,7 @@ from pathlib import Path
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 from obspy import read_inventory
@@ -645,11 +646,18 @@ def plot_polar_origin_offset(
         or f"Azimuth vs distance (colored by Δ depth) (n={n_ok} events)"
     )
     rk = r_km[np.isfinite(r_km)]
-    rmax = float(np.nanpercentile(rk, 99)) * 1.1 if rk.size else 1.0
-    ax.set_ylim(0.0, max(1.0, rmax))
+    # Use the full distance range (not a high percentile), otherwise the radial
+    # limit can sit below the largest offsets and the plot looks "capped" (e.g. 1 km).
+    if rk.size:
+        r_hi = float(np.nanmax(rk)) * 1.12
+        if r_hi <= 0.0 or not np.isfinite(r_hi):
+            r_hi = 1.0
+    else:
+        r_hi = 1.0
+    ax.set_ylim(0.0, r_hi)
     # Radial tick labels: show distance in km on every grid line
     r_ticks = np.asarray(ax.get_yticks(), dtype=float)
-    r_ticks = r_ticks[(r_ticks > 0) & (r_ticks <= ax.get_ylim()[1])]
+    r_ticks = r_ticks[(r_ticks > 0) & (r_ticks <= ax.get_ylim()[1] + 1e-9)]
     if r_ticks.size:
         ax.set_rgrids(
             r_ticks,
@@ -691,41 +699,37 @@ def make_catalog_comparer_volcano_figure(
     n_c = int(len(df_canonical_only))
     n_t = int(len(df_test_only))
     n_b = int(len(df_both))
-    for obspy_cat, label, n_ev, color, z in (
-        (
-            _cat_df_to_obspy_catalog_local(df_canonical_only),
-            "Canonical only",
-            n_c,
-            META_CANONICAL_ONLY_COLOR,
-            2,
-        ),
-        (
-            _cat_df_to_obspy_catalog_local(df_test_only),
-            "Test only",
-            n_t,
-            META_TEST_ONLY_COLOR,
-            3,
-        ),
-        (
-            _cat_df_to_obspy_catalog_local(df_both),
-            "Both (at canonical)",
-            n_b,
-            META_BOTH_COLOR,
-            4,
-        ),
-    ):
-        if len(obspy_cat) == 0:
-            continue
-        leg = f"{label} (n={n_ev})"
-        fig.plot_catalog(
-            obspy_cat,
-            s=48,
-            c=color,
-            alpha=0.5,
-            edgecolors="0.15",
-            linewidths=0.35,
-            label=leg,
-            zorder=z,
+    layers: list[tuple[pd.DataFrame, str, int, str, int]] = [
+        (df_canonical_only, "Canonical only", n_c, META_CANONICAL_ONLY_COLOR, 2),
+        (df_test_only, "Test only", n_t, META_TEST_ONLY_COLOR, 3),
+        (df_both, "Both (at canonical)", n_b, META_BOTH_COLOR, 4),
+    ]
+    leg_handles: list[Line2D] = []
+    for df_ly, label, n_ev, color, z in layers:
+        obspy_cat = _cat_df_to_obspy_catalog_local(df_ly)
+        if len(obspy_cat) > 0:
+            fig.plot_catalog(
+                obspy_cat,
+                s=48,
+                c=color,
+                alpha=0.5,
+                edgecolors="0.15",
+                linewidths=0.35,
+                zorder=z,
+            )
+        leg_handles.append(
+            Line2D(
+                [0],
+                [0],
+                linestyle="None",
+                marker="o",
+                markerfacecolor=color,
+                markeredgecolor="0.15",
+                markeredgewidth=0.35,
+                markersize=7.5,
+                alpha=0.5,
+                label=f"{label} (n={n_ev})",
+            )
         )
     win = f"{map_t1} to {map_t2}" if map_t1 is not None and map_t2 is not None else "full window"
     try:
@@ -736,11 +740,9 @@ def make_catalog_comparer_volcano_figure(
         )
     except Exception:
         pass
-    h, l = fig.map_obj.ax.get_legend_handles_labels()
-    if h:
+    if leg_handles:
         fig.map_obj.ax.legend(
-            h,
-            l,
+            handles=leg_handles,
             loc="lower right",
             fontsize=8,
             framealpha=0.9,
