@@ -518,7 +518,6 @@ def plot_timebin_stairs(
         color=META_TEST_ONLY_COLOR,
         label=label_test,
         linewidth=1.0,
-        linestyle="--",
     )
     try:
         from obspy.imaging.util import _set_xaxis_obspy_dates
