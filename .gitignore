@@ -25,15 +25,19 @@ ENV/
 
 # Local Development
 TODO.py
+PLAN*
 results/sthelens*
 results/*.bak
 *_local/
+examples_local/
+tests/
 analysis_local/
 .remote_compare/
 qc_sandbox/
 __pycache__/
 *.pyc
 *.pyo
+.coverage
 .env
 .vscode/
 .githooks/
