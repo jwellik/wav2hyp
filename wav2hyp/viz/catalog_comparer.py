@@ -510,14 +510,14 @@ def plot_timebin_stairs(
         edges,
         color=NLL_CATALOG_COLOR,
         label=label_canonical,
-        linewidth=1.4,
+        linewidth=2.0,
     )
     ax.stairs(
         st.to_numpy(),
         edges,
         color=META_TEST_ONLY_COLOR,
         label=label_test,
-        linewidth=1.4,
+        linewidth=1.0,
         linestyle="--",
     )
     try:
