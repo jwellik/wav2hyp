@@ -26,6 +26,7 @@ from wav2hyp.utils.io import NLLOutput
 from wav2hyp.viz.plot_styles import (
     ARRIVAL_DELTA_T_XLIM,
     COLORS_80S,
+    DELTA_DEPTH_COLORBAR_HALFRANGE_KM,
     DELTA_DEPTH_CMAP_80S,
     META_BOTH_COLOR,
     META_CANONICAL_ONLY_COLOR,
@@ -569,6 +570,9 @@ def plot_polar_origin_offset(
     """
     ``matched_with_depth`` must include
     ``latitude_canonical, longitude_canonical, latitude_test, longitude_test, depth_km_canonical, depth_km_test``.
+
+    Δ depth color scale is symmetric; default bar is ± ``DELTA_DEPTH_COLORBAR_HALFRANGE_KM``
+    (50 km). Pass ``delta_depth_vmax_km`` to use a different half-range.
     """
     df = matched_with_depth.copy()
     need = [
@@ -609,11 +613,10 @@ def plot_polar_origin_offset(
     ax.set_theta_direction(-1)
     th = np.deg2rad(az_deg)
     c = np.asarray(df["delta_depth_km"], dtype="float64")
-    c_abs = float(np.nanmax(np.abs(c[np.isfinite(c)]))) if np.isfinite(c).any() else 1.0
     vlim = (
         float(delta_depth_vmax_km)
         if delta_depth_vmax_km is not None
-        else min(100.0, max(0.5, c_abs))
+        else float(DELTA_DEPTH_COLORBAR_HALFRANGE_KM)
     )
     from matplotlib.colors import Normalize
 
