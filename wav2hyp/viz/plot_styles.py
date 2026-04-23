@@ -51,6 +51,8 @@ DELTA_DEPTH_COLORBAR_HALFRANGE_KM = 50.0
 
 # Shared x-limits for arrival Δt diagnostics (seconds)
 ARRIVAL_DELTA_T_XLIM: tuple[float, float] = (-10.0, 10.0)
+# Boxplot-by-station: tighter window than scatter
+ARRIVAL_BOXPLOT_DELTA_T_XLIM: tuple[float, float] = (-2.5, 2.5)
 
 
 def apply_mpl_axes_style(ax, facecolor: str = "white", grid_alpha: float = 0.35) -> None:

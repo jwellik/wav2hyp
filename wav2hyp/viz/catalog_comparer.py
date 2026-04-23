@@ -24,6 +24,7 @@ from vdapseisutils import VolcanoFigure
 
 from wav2hyp.utils.io import NLLOutput
 from wav2hyp.viz.plot_styles import (
+    ARRIVAL_BOXPLOT_DELTA_T_XLIM,
     ARRIVAL_DELTA_T_XLIM,
     COLORS_80S,
     DELTA_DEPTH_COLORBAR_HALFRANGE_KM,
@@ -907,8 +908,8 @@ def plot_arrival_boxplot_by_station(
         fontsize=10,
         color=TICK_DEFAULTS.get("axes_labelcolor", "k"),
     )
-    ax.set_xlim(ARRIVAL_DELTA_T_XLIM)
-    lim = max(10.0, float(ARRIVAL_DELTA_T_XLIM[1]))
+    ax.set_xlim(ARRIVAL_BOXPLOT_DELTA_T_XLIM)
+    lim = max(1.0, float(ARRIVAL_BOXPLOT_DELTA_T_XLIM[1]))
     for pos, col, _n, txt in n_ann:
         ax.text(
             lim * 0.99,
